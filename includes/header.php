@@ -40,6 +40,20 @@ if (file_exists($infoFile)) {
         <li class="nav-item"><a class="nav-link" href="products.php">Products</a></li>
         <li class="nav-item"><a class="nav-link" href="customers.php">Customers</a></li>
         <li class="nav-item"><a class="nav-link" href="customer_ledger.php">Ledger</a></li>
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">Vendors</a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="vendors.php">Vendors</a></li>
+            <li><a class="dropdown-item" href="purchases.php">Purchases (Stock In)</a></li>
+            <li><a class="dropdown-item" href="inventory.php">Inventory</a></li>
+            <li><a class="dropdown-item" href="vendor_ledger.php">Vendor Ledger</a></li>
+            <li><a class="dropdown-item" href="vendor_payouts.php">Vendor Payouts</a></li>
+            <?php if ($role === 'Admin'): ?>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="cash_summary.php">Cash Summary</a></li>
+            <?php endif; ?>
+          </ul>
+        </li>
         <li class="nav-item"><a class="nav-link" href="settings.php">Settings</a></li>
         <?php if ($role === 'Admin'): ?>
           <li class="nav-item"><a class="nav-link" href="Expense.php">Expenses</a></li>

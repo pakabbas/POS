@@ -16,6 +16,7 @@ session_write_close(); // nothing below writes to the session; release the lock
 // Correct path to DB connection
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/customers_lib.php';
+require_once __DIR__ . '/includes/inventory_lib.php';
 $conn->set_charset('utf8mb4');
 // Ensure connection closes per request
 register_shutdown_function(function() use ($conn) {
@@ -86,8 +87,12 @@ function getProducts($conn) {
     $result = $stmt->get_result();
     
     $products = [];
+    // Crates in stock (null when inventory tables are not set up yet); display only, never blocks a sale
+    $stock = function_exists('stock_map') ? stock_map($conn) : [];
     if ($result && $result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
+            $pid = (int)$row['ProductID'];
+            $row['Stock'] = array_key_exists($pid, $stock) ? $stock[$pid] : null;
             $products[] = $row;
         }
     }

@@ -224,6 +224,9 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             justify-content: center;
         }
         
+        .product-stock { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .product-stock.out { color: #dc2626; font-weight: 600; }
+
         .product-price {
             color: #667eea;
             font-weight: 700;
@@ -952,6 +955,19 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 });
         }
 
+        // Quietly reload product stock after a sale (keeps current tab / search)
+        function refreshStock() {
+            fetch('pos_api.php?action=getProducts')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.products) {
+                        allProducts = data.products;
+                        renderFilteredProducts();
+                    }
+                })
+                .catch(() => {});
+        }
+
         // Hide categories without products
         function refreshCategoryTabs() {
             const hasCat = new Set(allProducts.map(p => String(p.CategoryID)));
@@ -975,6 +991,13 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     allBtn.classList.add('active');
                 }
             }
+        }
+
+        function stockLabel(product) {
+            if (product.Stock === null || product.Stock === undefined) return '';
+            const q = parseFloat(product.Stock);
+            const txt = Number.isInteger(q) ? q : q.toFixed(2);
+            return `<div class="product-stock${q <= 0 ? ' out' : ''}">${txt} crates in stock</div>`;
         }
 
         function renderFilteredProducts() {
@@ -1003,6 +1026,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     <div class="product-icon">${getIcon(product)}</div>
                     <div class="product-name">${esc(product.ProductName)}</div>
                     <div class="product-price">Rs. ${parseFloat(product.Price).toFixed(2)}</div>
+                    ${stockLabel(product)}
                 `;
                 grid.appendChild(card);
             });
@@ -1210,6 +1234,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     clearCustomer();
                     setPaymentType('Cash');
                     updateCart();
+                    refreshStock();
                     if (data.invoiceId) {
                         window.open('receipt.php?id=' + data.invoiceId, '_blank');
                     }
