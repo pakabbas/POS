@@ -1,0 +1,6 @@
+includes/db.php
+error_log
+*.log
+temp.txt
+tmp_*.php
+.DS_Store

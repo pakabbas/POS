@@ -1,0 +1,300 @@
+/* ===============================
+   BASE + COLOR SYSTEM
+================================ */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+:root {
+  --blue-1: #2563eb;   /* primary */
+  --blue-2: #3b82f6;
+  --blue-3: #60a5fa;
+  --cyan:   #22d3ee;
+
+  --bg-main: linear-gradient(
+    135deg,
+    #e0ecff 0%,
+    #f5f9ff 40%,
+    #eef4ff 100%
+  );
+
+  --card-bg: linear-gradient(
+    160deg,
+    #ffffff 0%,
+    #f4f8ff 100%
+  );
+
+  --border-soft: rgba(37, 99, 235, 0.12);
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+}
+
+/* ===============================
+   APP BACKGROUND
+================================ */
+.bg-app {
+  background: var(--bg-main);
+  min-height: 100vh;
+  animation: fadeIn 0.5s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ===============================
+   NAVBAR
+================================ */
+nav.navbar {
+  background: linear-gradient(
+    135deg,
+    #2563eb 0%,
+    #3b82f6 50%,
+    #22d3ee 100%
+  ) !important;
+
+  box-shadow: 0 14px 40px rgba(37,99,235,0.35);
+  border-bottom: 1px solid rgba(255,255,255,0.25);
+}
+
+.navbar-brand,
+.navbar-nav .nav-link {
+  color: #fff !important;
+  font-weight: 500;
+}
+
+.navbar-nav .nav-link:hover {
+  opacity: 0.9;
+}
+
+/* ===============================
+   CARDS (GLASS STYLE)
+================================ */
+.card {
+  background: var(--card-bg);
+  border-radius: 18px;
+  border: 1px solid var(--border-soft);
+  box-shadow:
+    0 10px 30px rgba(37,99,235,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.6);
+
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow:
+    0 18px 46px rgba(37,99,235,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.6);
+}
+
+/* ===============================
+   METRIC CARDS
+================================ */
+.metric-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.metric-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at top right,
+    rgba(96,165,250,0.25),
+    transparent 60%
+  );
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.metric-card:hover::before {
+  opacity: 1;
+}
+
+.metric-icon {
+  font-size: 1.6rem;
+  background: linear-gradient(135deg, var(--blue-1), var(--cyan));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.metric-title {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.metric-value {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.metric-sub {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* ===============================
+   QUICK ACTION BUTTONS
+================================ */
+.quick-actions {
+  gap: 14px;
+}
+
+.quick-btn {
+  background: linear-gradient(
+    135deg,
+    #ffffff 0%,
+    #f0f6ff 100%
+  ) !important;
+
+  border: 1px solid var(--border-soft);
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-weight: 600;
+  color: var(--text-main) !important;
+
+  box-shadow: 0 10px 26px rgba(37,99,235,0.16);
+  transition: all 0.2s ease;
+}
+
+.quick-btn:hover {
+  transform: translateY(-3px) scale(1.02);
+  box-shadow: 0 18px 40px rgba(37,99,235,0.25);
+}
+
+.quick-btn .icon {
+  font-size: 1.2rem;
+}
+
+/* ===============================
+   TABLES
+================================ */
+.table {
+  font-size: 0.9rem;
+}
+
+.table thead.table-light {
+  background: linear-gradient(
+    135deg,
+    #e0ecff,
+    #f5f9ff
+  );
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) {
+  background-color: rgba(37,99,235,0.03);
+}
+
+/* ===============================
+   FORMS
+================================ */
+.form-control {
+  border-radius: 14px;
+  border-color: var(--border-soft);
+}
+
+.form-control:focus {
+  border-color: var(--blue-2);
+  box-shadow: 0 0 0 0.15rem rgba(37,99,235,0.25);
+}
+
+/* ===============================
+   BUTTONS
+================================ */
+.btn-dark {
+  background: linear-gradient(
+    135deg,
+    var(--blue-1),
+    var(--blue-2)
+  );
+  border: none;
+  box-shadow: 0 10px 24px rgba(37,99,235,0.35);
+}
+
+.btn-dark:hover {
+  filter: brightness(1.05);
+}
+
+.btn-primary {
+  background: linear-gradient(
+    135deg,
+    var(--blue-1),
+    var(--blue-2)
+  );
+  border: none;
+  box-shadow: 0 10px 24px rgba(37,99,235,0.35);
+}
+
+.btn-primary:hover {
+  filter: brightness(1.05);
+}
+
+/* ===============================
+   CHART CANVAS
+================================ */
+canvas {
+  animation: fadeIn 0.6s ease;
+}
+
+/* ===============================
+   FOOTER
+================================ */
+.info-footer {
+  color: var(--text-muted);
+}
+
+/* ===============================
+   AUTH / LOGIN
+================================ */
+.auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-main);
+  padding: 24px;
+}
+
+.auth-card {
+  width: min(420px, 100%);
+}
+
+.login-logo {
+  max-width: 120px;
+  margin: 0 auto 12px;
+  display: block;
+}
+
+.auth-title {
+  color: var(--text-main);
+}
+
+.auth-footer {
+  color: var(--text-muted);
+}
+
+.auth-footer a {
+  color: var(--text-main);
+}
+
+.auth-contact {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 999px;
+  padding: 8px 12px;
+  box-shadow: 0 10px 26px rgba(37,99,235,0.12);
+  color: var(--text-main);
+}
+
+.auth-contact .dot {
+  color: #22c55e;
+  font-size: 1rem;
+}
