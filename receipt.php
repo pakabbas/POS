@@ -1,6 +1,13 @@
 <?php
+session_start();
+if (!isset($_SESSION['username'])) {
+    header("Location: login.php");
+    exit();
+}
+session_write_close();
 date_default_timezone_set('Asia/Karachi');
 require __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/customers_lib.php';
 mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
 $conn->set_charset('utf8mb4');
 
@@ -25,7 +32,10 @@ if ($invoiceId <= 0) {
     exit;
 }
 
-$invStmt = $conn->prepare("SELECT InvoiceID, InvoiceNumber, InvoiceDate, Subtotal, TaxAmount, Discount, TotalAmount FROM Invoices WHERE InvoiceID = ?");
+$invStmt = $conn->prepare("SELECT i.InvoiceID, i.InvoiceNumber, i.InvoiceDate, i.Subtotal, i.TaxAmount, i.Discount, i.TotalAmount,
+       i.PaymentType, i.AmountPaid, i.CustomerID, i.CustomerName AS WalkinName, c.CustomerName, c.Phone AS CustomerPhone
+FROM Invoices i LEFT JOIN Customers c ON c.CustomerID = i.CustomerID
+WHERE i.InvoiceID = ?");
 $invStmt->bind_param('i', $invoiceId);
 $invStmt->execute();
 $invoice = $invStmt->get_result()->fetch_assoc();
@@ -49,6 +59,13 @@ $payStmt = $conn->prepare("SELECT AmountPaid, PaymentMethod, PaymentDate FROM Pa
 $payStmt->bind_param('i', $invoiceId);
 $payStmt->execute();
 $payment = $payStmt->get_result()->fetch_assoc();
+
+$isCredit = ($invoice['PaymentType'] ?? 'Cash') === 'Credit';
+$custName = $invoice['CustomerName'] ?: ($invoice['WalkinName'] ?? '');
+$custBalance = null;
+if (!empty($invoice['CustomerID'])) {
+    $custBalance = customer_balance_after_invoice($conn, (int)$invoice['CustomerID'], (int)$invoice['InvoiceID']);
+}
 
 function moneyPk($val) {
     // Show whole amount without currency label or decimals
@@ -93,6 +110,11 @@ body {
     <?php if ($phone): ?><div class="small muted"><?= htmlspecialchars($phone) ?></div><?php endif; ?>
     <div class="small muted">Inv # <?= htmlspecialchars($invoice['InvoiceNumber']) ?></div>
     <div class="small"><?= date('d-M-Y g:i A', strtotime($invoice['InvoiceDate'])) ?></div>
+    <div class="small bold"><?= $isCredit ? 'CREDIT SALE' : 'CASH SALE' ?></div>
+    <?php if ($custName !== ''): ?>
+      <div class="small">Customer: <?= htmlspecialchars($custName) ?></div>
+      <?php if (!empty($invoice['CustomerPhone'])): ?><div class="small muted"><?= htmlspecialchars($invoice['CustomerPhone']) ?></div><?php endif; ?>
+    <?php endif; ?>
   </div>
 
   <div class="line"></div>
@@ -118,6 +140,14 @@ body {
     <!-- <div class="row"><span>Tax</span><span><?= moneyPk($invoice['TaxAmount']) ?></span></div> -->
     <div class="row"><span>Discount</span><span><?= moneyPk($invoice['Discount']) ?></span></div>
     <div class="row bold"><span>Total</span><span><?= moneyPk($invoice['TotalAmount']) ?></span></div>
+    <?php if ($isCredit): ?>
+      <?php $paidNow = (float)($invoice['AmountPaid'] ?? 0); ?>
+      <div class="row"><span>Received</span><span><?= moneyPk($paidNow) ?></span></div>
+      <div class="row"><span>Bill Due</span><span><?= moneyPk((float)$invoice['TotalAmount'] - $paidNow) ?></span></div>
+      <?php if ($custBalance !== null): ?>
+        <div class="row bold"><span>Balance</span><span><?= moneyPk($custBalance) ?></span></div>
+      <?php endif; ?>
+    <?php endif; ?>
     <?php if ($payment): ?>
       <!-- <div class="row"><span>Paid</span><span><?= moneyPk($payment['AmountPaid']) ?></span></div> -->
       <!-- <div class="row"><span>Method</span><span><?= htmlspecialchars($payment['PaymentMethod']) ?></span></div> -->

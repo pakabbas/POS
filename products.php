@@ -19,20 +19,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $categoryId = $_POST['category_id'] !== '' ? (int) $_POST['category_id'] : null;
     $price = isset($_POST['price']) ? (float) $_POST['price'] : 0;
     $isActive = isset($_POST['is_active']) ? 1 : 0;
+    $sortOrder = isset($_POST['sort_order']) && $_POST['sort_order'] !== '' ? (int) $_POST['sort_order'] : 100;
     $id = isset($_POST['id']) ? (int) $_POST['id'] : null;
 
-    if ($name === '' || $price <= 0) {
-        $alert = ['type' => 'danger', 'msg' => 'Name and positive price are required.'];
+    if ($name === '' || $price < 0) {
+        $alert = ['type' => 'danger', 'msg' => 'Name is required and price cannot be negative.'];
     } else {
         try {
             if ($id) {
-                $stmt = $conn->prepare("UPDATE Products SET ProductName = ?, CategoryID = ?, Price = ?, IsActive = ? WHERE ProductID = ?");
-                $stmt->bind_param('sidii', $name, $categoryId, $price, $isActive, $id);
+                $stmt = $conn->prepare("UPDATE Products SET ProductName = ?, CategoryID = ?, Price = ?, SortOrder = ?, IsActive = ? WHERE ProductID = ?");
+                $stmt->bind_param('sidiii', $name, $categoryId, $price, $sortOrder, $isActive, $id);
                 $stmt->execute();
                 $alert = ['type' => 'success', 'msg' => 'Product updated.'];
             } else {
-                $stmt = $conn->prepare("INSERT INTO Products (ProductName, CategoryID, Price, IsActive) VALUES (?, ?, ?, ?)");
-                $stmt->bind_param('sidi', $name, $categoryId, $price, $isActive);
+                $stmt = $conn->prepare("INSERT INTO Products (ProductName, CategoryID, Price, SortOrder, IsActive) VALUES (?, ?, ?, ?, ?)");
+                $stmt->bind_param('sidii', $name, $categoryId, $price, $sortOrder, $isActive);
                 $stmt->execute();
                 $alert = ['type' => 'success', 'msg' => 'Product added.'];
             }
@@ -64,10 +65,10 @@ if (($_GET['edit'] ?? '') !== '') {
 }
 
 $rows = $conn->query("
-    SELECT p.ProductID, p.ProductName, p.Price, p.IsActive, c.CategoryName
+    SELECT p.ProductID, p.ProductName, p.Price, p.SortOrder, p.IsActive, c.CategoryName
     FROM Products p
     LEFT JOIN Categories c ON p.CategoryID = c.CategoryID
-    ORDER BY p.ProductName
+    ORDER BY p.SortOrder, p.ProductName
 ")->fetch_all(MYSQLI_ASSOC);
 ?>
 
@@ -105,6 +106,10 @@ $rows = $conn->query("
             <label class="form-label">Price</label>
             <input type="number" name="price" min="0" step="0.01" class="form-control" value="<?= htmlspecialchars($editData['Price'] ?? '') ?>" required>
           </div>
+          <div class="mb-3">
+            <label class="form-label">Sort Order <small class="text-muted">(lower shows first on POS)</small></label>
+            <input type="number" name="sort_order" step="1" class="form-control" value="<?= htmlspecialchars($editData['SortOrder'] ?? 100) ?>">
+          </div>
           <div class="form-check mb-3">
             <input class="form-check-input" type="checkbox" name="is_active" id="isActive" <?= ($editData['IsActive'] ?? 1) ? 'checked' : '' ?>>
             <label class="form-check-label" for="isActive">Active</label>
@@ -133,6 +138,7 @@ $rows = $conn->query("
                 <th>Name</th>
                 <th>Category</th>
                 <th>Price</th>
+                <th>Order</th>
                 <th>Status</th>
                 <th class="text-end">Actions</th>
               </tr>
@@ -143,7 +149,8 @@ $rows = $conn->query("
                   <td><?= htmlspecialchars($row['ProductID']) ?></td>
                   <td><?= htmlspecialchars($row['ProductName']) ?></td>
                   <td><?= htmlspecialchars($row['CategoryName'] ?? '—') ?></td>
-                  <td>$<?= number_format($row['Price'], 2) ?></td>
+                  <td>Rs. <?= number_format($row['Price'], 2) ?></td>
+                  <td><?= (int)$row['SortOrder'] ?></td>
                   <td><span class="badge bg-<?= $row['IsActive'] ? 'success' : 'secondary' ?>"><?= $row['IsActive'] ? 'Active' : 'Inactive' ?></span></td>
                   <td class="text-end">
                     <a class="btn btn-sm btn-outline-primary" href="products.php?edit=<?= $row['ProductID'] ?>">Edit</a>

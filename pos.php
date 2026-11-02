@@ -586,6 +586,56 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 opacity: 1;
             }
         }
+
+        /* ---- Compact Current Order panel (fits ~1366x768 with totals + Checkout visible) ---- */
+        .cart-section { padding: 16px 18px; min-height: 0; overflow: hidden; }
+        .cart-header { margin-bottom: 10px; }
+        .cart-items { flex: 1 1 auto; min-height: 80px; overflow-y: auto; margin-bottom: 8px; padding-right: 2px; }
+        .cart-item { padding: 6px 10px; margin-bottom: 5px; border-radius: 8px; }
+        .item-name { font-size: 13px; margin-bottom: 1px; }
+        .item-price { font-size: 12px; }
+        .item-controls { gap: 6px; }
+        .qty-btn { width: 26px; height: 26px; font-size: 16px; border-radius: 6px; }
+        .qty-display { min-width: 22px; font-size: 13px; }
+        .remove-btn { padding: 5px 8px; font-size: 11px; }
+        .empty-cart { padding: 16px 10px; }
+        .cart-items .empty-cart-icon { font-size: 36px; margin-bottom: 6px; }
+        .cart-summary { padding-top: 10px; flex: 0 0 auto; }
+        .discount-input { margin-bottom: 8px; }
+        .discount-input input, .discount-input button { padding: 7px 12px; }
+        .summary-row { margin-bottom: 5px; font-size: 14px; }
+        .summary-row.total { font-size: 18px; margin-top: 6px; padding-top: 6px; }
+        .action-buttons { grid-template-columns: 1fr; margin-top: 8px; }
+        .btn { padding: 12px; }
+
+        /* ---- Customer / Cash-Credit controls ---- */
+        .customer-panel { flex: 0 0 auto; margin-bottom: 8px; }
+        .pay-type { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+        .pay-type button { padding: 7px; border: 2px solid #e2e8f0; background: #fff; border-radius: 8px; font-weight: 600; font-size: 13px; cursor: pointer; color: #4a5568; }
+        .pay-type button.active[data-type="Cash"] { background: #48bb78; border-color: #48bb78; color: #fff; }
+        .pay-type button.active[data-type="Credit"] { background: #dd6b20; border-color: #dd6b20; color: #fff; }
+        .cust-row { display: flex; gap: 6px; }
+        .cust-search { position: relative; flex: 1; }
+        .cust-search input { width: 100%; padding: 7px 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 13px; }
+        .cust-search input:focus { outline: none; border-color: #667eea; }
+        .new-cust-btn { padding: 0 10px; border: none; border-radius: 8px; background: #667eea; color: #fff; font-weight: 600; font-size: 12px; cursor: pointer; white-space: nowrap; }
+        .new-cust-btn:hover { background: #5568d3; }
+        .cust-results { display: none; position: absolute; left: 0; right: 0; top: 100%; z-index: 50; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 25px rgba(0,0,0,.15); max-height: 260px; overflow-y: auto; }
+        .cust-results.open { display: block; }
+        .cust-opt { padding: 7px 10px; cursor: pointer; font-size: 13px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; gap: 8px; }
+        .cust-opt:hover, .cust-opt.hl { background: #edf2f7; }
+        .cust-opt small { color: #718096; }
+        .cust-opt .bal { font-weight: 600; white-space: nowrap; }
+        .bal.due { color: #c53030; }
+        .selected-cust { display: none; margin-top: 6px; padding: 6px 10px; background: #ebf4ff; border-radius: 8px; font-size: 13px; justify-content: space-between; align-items: center; gap: 6px; }
+        .selected-cust.show { display: flex; }
+        .selected-cust button { border: none; background: transparent; color: #c53030; cursor: pointer; font-size: 14px; }
+        .pay-hint { font-size: 12px; color: #718096; margin-top: 4px; }
+        .credit-calc { font-size: 13px; background: #f7fafc; border-radius: 8px; padding: 8px 10px; }
+        .credit-calc div { display: flex; justify-content: space-between; }
+        .form-group textarea { width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; font-size: 14px; }
+        .modal-error { color: #c53030; font-size: 13px; min-height: 16px; }
+        @media (max-height: 700px) { body { padding: 10px; } .pos-container { height: calc(100vh - 20px); } .header { margin-bottom: 12px; padding-bottom: 10px; } }
     </style>
 </head>
 <body>
@@ -628,6 +678,24 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 <button class="quick-checkout-btn" onclick="openCheckoutModal()">Checkout</button>
             </div>
             
+            <div class="customer-panel">
+                <div class="pay-type">
+                    <button type="button" data-type="Cash" class="active" onclick="setPaymentType('Cash')">💵 Cash</button>
+                    <button type="button" data-type="Credit" onclick="setPaymentType('Credit')">📒 Credit</button>
+                </div>
+                <div class="cust-row">
+                    <div class="cust-search">
+                        <input type="text" id="customerSearch" placeholder="Customer: name or phone (blank = walk-in)" autocomplete="off">
+                        <div class="cust-results" id="customerResults"></div>
+                    </div>
+                    <button type="button" class="new-cust-btn" onclick="openNewCustomerModal()">+ New Customer</button>
+                </div>
+                <div class="selected-cust" id="selectedCustomer">
+                    <span id="selectedCustomerText"></span>
+                    <button type="button" title="Clear customer" onclick="clearCustomer()">✕</button>
+                </div>
+            </div>
+
             <div class="cart-items" id="cartItems">
                 <div class="empty-cart">
                     <div class="empty-cart-icon">🛍️</div>
@@ -645,7 +713,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     <span>Subtotal:</span>
                     <span id="subtotal">Rs. 0.00</span>
                 </div>
-                <div class="summary-row">
+                <div class="summary-row" style="display:none">
                     <span>Tax (<?php echo $tax_rate; ?>%):</span>
                     <span id="tax">Rs. 0.00</span>
                 </div>
@@ -659,7 +727,6 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="btn btn-clear" onclick="clearCart()">Clear</button>
                     <button class="btn btn-checkout" onclick="openCheckoutModal()">Checkout</button>
                 </div>
             </div>
@@ -671,20 +738,59 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         <div class="modal-content">
             <div class="modal-header">Complete Order</div>
             <div class="form-group">
-                <label>Payment Method</label>
+                <div id="checkoutSummary" style="font-size:14px;color:#4a5568"></div>
+            </div>
+            <div class="form-group">
+                <label id="paymentMethodLabel">Payment Method</label>
                 <select id="paymentMethod">
                     <option value="Cash">Cash</option>
                     <option value="Card">Card</option>
                     <option value="Digital Wallet">Digital Wallet</option>
                 </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="walkinNameGroup">
                 <label>Customer Name (Optional)</label>
-                <input type="text" id="customerName" placeholder="Enter customer name">
+                <input type="text" id="customerName" placeholder="Walk-in customer name">
             </div>
+            <div id="creditGroup" style="display:none">
+                <div class="form-group">
+                    <label>Amount Received Now (optional)</label>
+                    <input type="number" id="amountPaid" min="0" step="0.01" value="0" oninput="updateCreditCalc()">
+                </div>
+                <div class="form-group credit-calc" id="creditCalc"></div>
+            </div>
+            <div class="modal-error" id="checkoutError"></div>
             <div class="modal-buttons">
                 <button class="btn-cancel" onclick="closeCheckoutModal()">Cancel</button>
-                <button class="btn-confirm" onclick="completeCheckout()">Complete Order</button>
+                <button class="btn-confirm" id="confirmCheckoutBtn" onclick="completeCheckout()">Complete Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- New Customer Modal -->
+    <div class="modal" id="newCustomerModal">
+        <div class="modal-content">
+            <div class="modal-header">New Customer</div>
+            <div class="form-group">
+                <label>Name *</label>
+                <input type="text" id="ncName" maxlength="150" placeholder="Customer / shop name">
+            </div>
+            <div class="form-group">
+                <label>Phone</label>
+                <input type="text" id="ncPhone" maxlength="30" placeholder="03xx-xxxxxxx">
+            </div>
+            <div class="form-group">
+                <label>Address</label>
+                <input type="text" id="ncAddress" maxlength="255" placeholder="Address / area">
+            </div>
+            <div class="form-group">
+                <label>Opening Balance (Rs.) <small style="font-weight:400;color:#718096">amount they already owe</small></label>
+                <input type="number" id="ncOpening" step="0.01" value="0">
+            </div>
+            <div class="modal-error" id="ncError"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeNewCustomerModal()">Cancel</button>
+                <button class="btn-confirm" id="ncSaveBtn" onclick="saveNewCustomer()">Save &amp; Select</button>
             </div>
         </div>
     </div>
@@ -699,6 +805,134 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         let allProducts = [];
         const taxRate = <?php echo $tax_rate; ?>;
         let discountPercent = 0;
+        let paymentType = 'Cash';
+        let selectedCustomer = null;
+        let checkoutBusy = false;
+
+        function esc(s) {
+            return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+        function rs(n) { return 'Rs. ' + (parseFloat(n) || 0).toFixed(2); }
+        function currentTotals() {
+            const subtotal = cart.reduce((sum, item) => sum + (item.Price * item.quantity), 0);
+            const taxAmount = subtotal * (taxRate / 100);
+            const discountAmount = subtotal * (discountPercent / 100);
+            const total = subtotal + taxAmount - discountAmount;
+            return { subtotal, taxAmount, discountAmount, total };
+        }
+
+        // ---------- Cash / Credit ----------
+        function setPaymentType(t) {
+            paymentType = (t === 'Credit') ? 'Credit' : 'Cash';
+            document.querySelectorAll('.pay-type button').forEach(b => b.classList.toggle('active', b.dataset.type === paymentType));
+            document.getElementById('customerSearch').placeholder = paymentType === 'Credit'
+                ? 'Credit sale: search customer (required)'
+                : 'Customer: name or phone (blank = walk-in)';
+            if (paymentType === 'Credit' && !selectedCustomer) {
+                document.getElementById('customerSearch').focus();
+            }
+        }
+
+        // ---------- Customer search / select ----------
+        let custTimer = null;
+        let custResults = [];
+        let custHl = -1;
+        function searchCustomers(q) {
+            fetch('pos_api.php?action=searchCustomers&q=' + encodeURIComponent(q))
+                .then(r => r.json())
+                .then(data => {
+                    custResults = (data && data.customers) || [];
+                    custHl = -1;
+                    renderCustomerResults(q);
+                })
+                .catch(err => console.error(err));
+        }
+        function renderCustomerResults(q) {
+            const box = document.getElementById('customerResults');
+            if (!custResults.length) {
+                box.innerHTML = '<div class="cust-opt"><small>No customer found' + (q ? ' for "' + esc(q) + '"' : '') + '. Use + New Customer.</small></div>';
+            } else {
+                box.innerHTML = custResults.map((c, i) => `
+                    <div class="cust-opt${i === custHl ? ' hl' : ''}" data-idx="${i}">
+                        <span>${esc(c.CustomerName)}<br><small>${esc(c.Phone || '')}${c.Area ? ' · ' + esc(c.Area) : ''}</small></span>
+                        <span class="bal${c.Balance > 0 ? ' due' : ''}">${rs(c.Balance)}</span>
+                    </div>`).join('');
+                box.querySelectorAll('.cust-opt[data-idx]').forEach(el => {
+                    el.addEventListener('mousedown', e => { e.preventDefault(); selectCustomer(custResults[+el.dataset.idx]); });
+                });
+            }
+            box.classList.add('open');
+        }
+        function hideCustomerResults() { document.getElementById('customerResults').classList.remove('open'); }
+        function selectCustomer(c) {
+            selectedCustomer = c;
+            const input = document.getElementById('customerSearch');
+            input.value = '';
+            hideCustomerResults();
+            const limit = (c.CreditLimit !== null && c.CreditLimit !== undefined) ? ' · Limit ' + rs(c.CreditLimit) : '';
+            document.getElementById('selectedCustomerText').innerHTML =
+                '👤 <b>' + esc(c.CustomerName) + '</b>' + (c.Phone ? ' · ' + esc(c.Phone) : '') +
+                ' · Bal: <b class="bal' + (c.Balance > 0 ? ' due' : '') + '">' + rs(c.Balance) + '</b>' + esc(limit);
+            document.getElementById('selectedCustomer').classList.add('show');
+        }
+        function clearCustomer() {
+            selectedCustomer = null;
+            document.getElementById('selectedCustomer').classList.remove('show');
+            document.getElementById('customerSearch').value = '';
+        }
+
+        // ---------- New customer popup ----------
+        function openNewCustomerModal() {
+            const typed = document.getElementById('customerSearch').value.trim();
+            document.getElementById('ncName').value = /^[0-9+\-\s]+$/.test(typed) ? '' : typed;
+            document.getElementById('ncPhone').value = /^[0-9+\-\s]+$/.test(typed) ? typed : '';
+            document.getElementById('ncAddress').value = '';
+            document.getElementById('ncOpening').value = '0';
+            document.getElementById('ncError').textContent = '';
+            hideCustomerResults();
+            document.getElementById('newCustomerModal').classList.add('active');
+            setTimeout(() => document.getElementById(document.getElementById('ncName').value ? 'ncPhone' : 'ncName').focus(), 50);
+        }
+        function closeNewCustomerModal() { document.getElementById('newCustomerModal').classList.remove('active'); }
+        function saveNewCustomer() {
+            const btn = document.getElementById('ncSaveBtn');
+            const err = document.getElementById('ncError');
+            const payload = {
+                action: 'createCustomer',
+                name: document.getElementById('ncName').value.trim(),
+                phone: document.getElementById('ncPhone').value.trim(),
+                address: document.getElementById('ncAddress').value.trim(),
+                openingBalance: parseFloat(document.getElementById('ncOpening').value) || 0
+            };
+            if (!payload.name) { err.textContent = 'Name is required'; return; }
+            btn.disabled = true;
+            fetch('pos_api.php', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        closeNewCustomerModal();
+                        selectCustomer(data.customer);
+                    } else {
+                        err.textContent = data.message || 'Could not save customer';
+                    }
+                })
+                .catch(() => { err.textContent = 'Network error, customer not saved'; })
+                .finally(() => { btn.disabled = false; });
+        }
+
+        function updateCreditCalc() {
+            if (!selectedCustomer) return;
+            const { total } = currentTotals();
+            const paid = Math.max(0, parseFloat(document.getElementById('amountPaid').value) || 0);
+            const due = total - paid;
+            const newBal = (parseFloat(selectedCustomer.Balance) || 0) + due;
+            document.getElementById('creditCalc').innerHTML =
+                '<div><span>Previous balance</span><span>' + rs(selectedCustomer.Balance) + '</span></div>' +
+                '<div><span>This bill</span><span>' + rs(total) + '</span></div>' +
+                '<div><span>Received now</span><span>' + rs(paid) + '</span></div>' +
+                '<div style="font-weight:700"><span>New balance</span><span>' + rs(newBal) + '</span></div>';
+            document.getElementById('checkoutError').textContent = paid > total + 0.001 ? 'Amount received is more than the bill total' : '';
+        }
         const allTabSelector = '.category-btn[data-category="all"]';
         
         // Load all products once, then filter client-side
@@ -767,7 +1001,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 card.onclick = () => addToCart(product);
                 card.innerHTML = `
                     <div class="product-icon">${getIcon(product)}</div>
-                    <div class="product-name">${product.ProductName}</div>
+                    <div class="product-name">${esc(product.ProductName)}</div>
                     <div class="product-price">Rs. ${parseFloat(product.Price).toFixed(2)}</div>
                 `;
                 grid.appendChild(card);
@@ -825,7 +1059,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     itemDiv.className = 'cart-item';
                     itemDiv.innerHTML = `
                         <div class="item-info">
-                            <div class="item-name">${item.ProductName}</div>
+                            <div class="item-name">${esc(item.ProductName)}</div>
                             <div class="item-price">Rs. ${item.Price.toFixed(2)} each</div>
                         </div>
                         <div class="item-controls">
@@ -895,6 +1129,23 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 alert('Cart is empty!');
                 return;
             }
+            if (paymentType === 'Credit' && !selectedCustomer) {
+                alert('Credit sale needs a customer. Search or create a customer first.');
+                document.getElementById('customerSearch').focus();
+                return;
+            }
+            const { total } = currentTotals();
+            const isCredit = paymentType === 'Credit';
+            document.getElementById('checkoutSummary').innerHTML =
+                '<b>' + (isCredit ? '📒 Credit sale' : '💵 Cash sale') + '</b> · ' +
+                (selectedCustomer ? esc(selectedCustomer.CustomerName) : 'Walk-in') +
+                ' · Total <b>' + rs(total) + '</b>';
+            document.getElementById('walkinNameGroup').style.display = (!isCredit && !selectedCustomer) ? '' : 'none';
+            document.getElementById('creditGroup').style.display = isCredit ? '' : 'none';
+            document.getElementById('paymentMethodLabel').textContent = isCredit ? 'Method (for amount received)' : 'Payment Method';
+            document.getElementById('amountPaid').value = '0';
+            document.getElementById('checkoutError').textContent = '';
+            if (isCredit) updateCreditCalc();
             document.getElementById('checkoutModal').classList.add('active');
         }
         
@@ -905,13 +1156,24 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         
         // Complete checkout
         function completeCheckout() {
+            if (checkoutBusy) return;
             const paymentMethod = document.getElementById('paymentMethod').value;
-            const customerName = document.getElementById('customerName').value;
-            
-            const subtotal = cart.reduce((sum, item) => sum + (item.Price * item.quantity), 0);
-            const taxAmount = subtotal * (taxRate / 100);
-            const discountAmount = subtotal * (discountPercent / 100);
-            const total = subtotal + taxAmount - discountAmount;
+            const customerName = selectedCustomer ? '' : document.getElementById('customerName').value;
+            const { subtotal, taxAmount, discountAmount, total } = currentTotals();
+            const isCredit = paymentType === 'Credit';
+            if (isCredit && !selectedCustomer) { alert('Credit sale needs a customer.'); return; }
+            const amountPaid = isCredit ? Math.max(0, parseFloat(document.getElementById('amountPaid').value) || 0) : total;
+            if (isCredit && amountPaid > total + 0.001) {
+                document.getElementById('checkoutError').textContent = 'Amount received is more than the bill total';
+                return;
+            }
+            if (isCredit && selectedCustomer.CreditLimit !== null && selectedCustomer.CreditLimit !== undefined) {
+                const newBal = (parseFloat(selectedCustomer.Balance) || 0) + total - amountPaid;
+                if (newBal > selectedCustomer.CreditLimit &&
+                    !confirm('New balance ' + rs(newBal) + ' is over the credit limit ' + rs(selectedCustomer.CreditLimit) + '. Continue?')) {
+                    return;
+                }
+            }
             
             const orderData = {
                 action: 'createInvoice',
@@ -921,8 +1183,13 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 discount: discountAmount,
                 total: total,
                 paymentMethod: paymentMethod,
-                customerName: customerName
+                customerName: customerName,
+                paymentType: paymentType,
+                customerId: selectedCustomer ? selectedCustomer.CustomerID : null,
+                amountPaid: amountPaid
             };
+            checkoutBusy = true;
+            document.getElementById('confirmCheckoutBtn').disabled = true;
             
             fetch('pos_api.php', {
                 method: 'POST',
@@ -940,6 +1207,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     discountPercent = 0;
                     document.getElementById('discountInput').value = '';
                     document.getElementById('customerName').value = '';
+                    clearCustomer();
+                    setPaymentType('Cash');
                     updateCart();
                     if (data.invoiceId) {
                         window.open('receipt.php?id=' + data.invoiceId, '_blank');
@@ -951,6 +1220,10 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             .catch(error => {
                 console.error('Error:', error);
                 alert('Error processing order');
+            })
+            .finally(() => {
+                checkoutBusy = false;
+                document.getElementById('confirmCheckoutBtn').disabled = false;
             });
         }
         
@@ -981,6 +1254,24 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             }, 300);
         });
         
+        // Customer search box
+        const custInput = document.getElementById('customerSearch');
+        custInput.addEventListener('input', function() {
+            clearTimeout(custTimer);
+            const q = this.value.trim();
+            custTimer = setTimeout(() => searchCustomers(q), 250);
+        });
+        custInput.addEventListener('focus', function() { searchCustomers(this.value.trim()); });
+        custInput.addEventListener('blur', () => setTimeout(hideCustomerResults, 150));
+        custInput.addEventListener('keydown', function(e) {
+            const box = document.getElementById('customerResults');
+            if (!box.classList.contains('open') || !custResults.length) return;
+            if (e.key === 'ArrowDown') { custHl = Math.min(custResults.length - 1, custHl + 1); renderCustomerResults(this.value); e.preventDefault(); }
+            else if (e.key === 'ArrowUp') { custHl = Math.max(0, custHl - 1); renderCustomerResults(this.value); e.preventDefault(); }
+            else if (e.key === 'Enter') { selectCustomer(custResults[custHl >= 0 ? custHl : 0]); e.preventDefault(); }
+            else if (e.key === 'Escape') { hideCustomerResults(); }
+        });
+
         // Initial load
         loadAllProducts();
     </script>
