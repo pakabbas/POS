@@ -38,6 +38,8 @@ if (file_exists($infoFile)) {
         <li class="nav-item"><a class="nav-link" href="pos.php">POS</a></li>
         <li class="nav-item"><a class="nav-link" href="categories.php">Categories</a></li>
         <li class="nav-item"><a class="nav-link" href="products.php">Products</a></li>
+        <li class="nav-item"><a class="nav-link" href="customers.php">Customers</a></li>
+        <li class="nav-item"><a class="nav-link" href="customer_ledger.php">Ledger</a></li>
         <li class="nav-item"><a class="nav-link" href="settings.php">Settings</a></li>
         <?php if ($role === 'Admin'): ?>
           <li class="nav-item"><a class="nav-link" href="Expense.php">Expenses</a></li>
