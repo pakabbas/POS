@@ -18,14 +18,8 @@ $categories_result = $conn->query($categories_query);
 
 // Category icon map for quick visual tiles
 $categoryIcons = [
-    40 => '🍗', // Broast
-    34 => '🍔', // Burger
-    37 => '🎁', // Deals
-    39 => '🥤', // Drinks
-    36 => '🍟', // Fries
-    33 => '🍕', // Pizza
-    35 => '🌯', // Roll
-    38 => '🥪', // Sandwich
+    1 => '🥚', // Normal Eggs
+    2 => '🐔', // Desi Egg
 ];
 
 // Fetch tax rate
@@ -213,6 +207,12 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             font-size: 24px;
         }
         
+        .product-card .product-icon { background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%); }
+        .egg-wrap { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; height: 100%; }
+        .egg.desi { filter: sepia(0.9) saturate(2.2) hue-rotate(-10deg) brightness(0.85); }
+        .egg-badge { position: absolute; right: -6px; bottom: -6px; background: #fff; color: #92400e; font-size: 10px; font-weight: 700; border-radius: 8px; padding: 1px 5px; box-shadow: 0 1px 3px rgba(0,0,0,.25); }
+        .desi-badge { font-size: 11px; padding: 0 3px; }
+
         .product-name {
             font-weight: 600;
             color: #2d3748;
@@ -766,7 +766,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 card.className = 'product-card';
                 card.onclick = () => addToCart(product);
                 card.innerHTML = `
-                    <div class="product-icon">${getIcon(product.CategoryName)}</div>
+                    <div class="product-icon">${getIcon(product)}</div>
                     <div class="product-name">${product.ProductName}</div>
                     <div class="product-price">Rs. ${parseFloat(product.Price).toFixed(2)}</div>
                 `;
@@ -774,27 +774,21 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             });
         }
 
-        function getIcon(category) {
-            const key = (category || '').toLowerCase();
-            const icons = {
-                'all items': '🍽️',
-                'appetizers': '🥟',
-                'beverages': '🥤',
-                'burgers': '🍔',
-                'chatkhara delights': '🌶️',
-                "faluda's": '🍨',
-                'fresh juice': '🧃',
-                'fresh shakes': '🥤',
-                'fries': '🍟',
-                'ice cream': '🍦',
-                'ice cream shakes': '🥤',
-                'pizza special': '🍕',
-                'pizza traditional': '🍕',
-                'premium shakes': '🧋',
-                'sandwiches and kids meal': '🥪',
-                'signature': '⭐'
-            };
-            return icons[key] || '🍴';
+        function getIcon(product) {
+            const name = (product.ProductName || '').toLowerCase();
+            const cat = (product.CategoryName || '').toLowerCase();
+            // Egg icon scaled by size, with a size badge
+            const sizes = { 'small': ['S', 18], 'medium': ['M', 23], 'xl': ['XL', 32], 'large': ['L', 27] };
+            if (cat.includes('desi') || name.includes('desi')) {
+                return '<span class="egg-wrap"><span class="egg desi" style="font-size:27px">🥚</span><span class="egg-badge desi-badge">🐔</span></span>';
+            }
+            for (const k of ['small', 'medium', 'xl', 'large']) {
+                if (name.includes(k)) {
+                    const [label, px] = sizes[k];
+                    return `<span class="egg-wrap"><span class="egg" style="font-size:${px}px">🥚</span><span class="egg-badge">${label}</span></span>`;
+                }
+            }
+            return '🥚';
         }
         
         // Add to cart
