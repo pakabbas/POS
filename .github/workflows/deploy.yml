@@ -1,0 +1,110 @@
+name: Deploy to pos.btkdeals.com
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      SSH_HOST: ${{ secrets.SSH_HOST }}
+      SSH_PORT: ${{ secrets.SSH_PORT }}
+      SSH_USER: ${{ secrets.SSH_USER }}
+      DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          tools: none
+
+      - name: Lint PHP (fail fast)
+        run: |
+          set -e
+          find . -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l > /tmp/lint.txt || { grep -v '^No syntax errors' /tmp/lint.txt; exit 1; }
+          echo "Linted $(grep -c '^No syntax errors' /tmp/lint.txt) PHP files"
+
+      - name: Set up SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -e
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          if [ -n "$SSH_KNOWN_HOSTS" ]; then
+            printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          else
+            ssh-keyscan -p "$SSH_PORT" "$SSH_HOST" > ~/.ssh/known_hosts
+          fi
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<CFG
+          Host deploy-target
+            HostName $SSH_HOST
+            Port $SSH_PORT
+            User $SSH_USER
+            IdentityFile ~/.ssh/deploy_key
+            IdentitiesOnly yes
+            BatchMode yes
+            ConnectTimeout 20
+            ServerAliveInterval 15
+          CFG
+          chmod 600 ~/.ssh/config
+          ssh deploy-target 'echo "connected as $(whoami)"'
+
+      - name: Back up current files on server (keep last 10)
+        run: |
+          ssh deploy-target "DEPLOY_PATH='$DEPLOY_PATH' bash -s" <<'REMOTE'
+          set -e
+          test -d "$DEPLOY_PATH"
+          mkdir -p ~/pos_backups
+          TS=$(TZ=Asia/Karachi date +%Y%m%d_%H%M%S)
+          tar -czf ~/pos_backups/deploy_$TS.tar.gz -C "$DEPLOY_PATH" --exclude=error_log --exclude='*.log' .
+          ls -1t ~/pos_backups/deploy_*.tar.gz | tail -n +11 | xargs -r rm -f
+          echo "Backup: ~/pos_backups/deploy_$TS.tar.gz"
+          REMOTE
+
+      - name: Upload files (rsync, no delete)
+        run: |
+          set -e
+          # Never deleted, never overwritten: includes/db.php (credentials), logs, and files edited
+          # from the app's Settings page (restaurantInfo.txt, Logo.jpg). SQL migrations are NOT run here.
+          rsync -rlptvz --chmod=D755,F644 \
+            --exclude='.git/' --exclude='.github/' --exclude='includes/db.php' \
+            --exclude='error_log' --exclude='*.log' --exclude='README.md' --exclude='db.txt' \
+            --exclude='migrations/' --exclude='.gitignore' --exclude='.DS_Store' \
+            --exclude='restaurantInfo.txt' --exclude='Logo.jpg' \
+            -e ssh ./ "deploy-target:$DEPLOY_PATH/"
+
+      - name: Lint PHP on server
+        run: |
+          ssh deploy-target "cd '$DEPLOY_PATH' && for f in *.php includes/*.php; do php -l \"\$f\" >/dev/null || { echo \"Syntax error in \$f\"; exit 1; }; done; test -f includes/db.php && echo 'server lint ok, includes/db.php present'"
+
+      - name: Smoke check
+        run: |
+          set -e
+          for i in 1 2 3; do
+            code=$(curl -s -o /tmp/login.html -w '%{http_code}' https://pos.btkdeals.com/login.php) && [ "$code" = "200" ] && break
+            sleep 5
+          done
+          echo "login.php -> $code"
+          [ "$code" = "200" ]
+          if grep -qiE 'fatal error|parse error' /tmp/login.html; then echo 'PHP error on login page'; exit 1; fi
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
