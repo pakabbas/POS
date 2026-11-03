@@ -32,7 +32,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Restaurant POS System</title>
+    <title>Inventory &amp; POS</title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
@@ -646,7 +647,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         <!-- Products Section -->
         <div class="products-section">
             <div class="header">
-                <h1>🍽️ Restaurant POS</h1>
+                <h1><img src="assets/logo.svg" alt="" style="width:34px;height:34px;vertical-align:-6px;margin-right:6px;">Inventory &amp; POS</h1>
                 <a class="back-btn" href="dashboard.php">← Back to Dashboard</a>
             </div>
             

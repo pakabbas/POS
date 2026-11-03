@@ -13,7 +13,7 @@ $conn->set_charset('utf8mb4');
 
 // Load restaurant info if available
 $infoFile = __DIR__ . '/restaurantInfo.txt';
-$bizName = 'Restaurant POS';
+$bizName = 'Inventory & POS';
 $tagline = '';
 $phone = '';
 $address = '';
@@ -104,9 +104,8 @@ body {
 </head>
 <body>
   <div class="center header">
-    <?php if (file_exists(__DIR__ . '/Logo.jpg')): ?>
-      <img src="Logo.jpg" alt="Logo" style="max-width:120px; height:auto; margin-bottom:4px;">
-    <?php endif; ?>
+    <img src="assets/logo-mono.svg" alt="" style="width:36px; height:36px; margin-bottom:2px;">
+    <div class="bold" style="font-size:11px;"><?= htmlspecialchars($bizName) ?></div>
     <?php if ($phone): ?><div class="small muted"><?= htmlspecialchars($phone) ?></div><?php endif; ?>
     <div class="small muted">Inv # <?= htmlspecialchars($invoice['InvoiceNumber']) ?></div>
     <div class="small"><?= date('d-M-Y g:i A', strtotime($invoice['InvoiceDate'])) ?></div>

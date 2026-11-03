@@ -30,9 +30,13 @@ Every push to `main` (or a manual run from the Actions tab, "Deploy to pos.btkde
 
 1. `php -l` on every PHP file; any syntax error stops the deploy.
 2. Connects over SSH (port 65002) with a dedicated deploy key and backs up the live folder to `~/pos_backups/deploy_<timestamp>.tar.gz` on the server (last 10 kept).
-3. `rsync` uploads the code to `domains/btkdeals.com/public_html/pos` **without deleting** anything on the server. Never uploaded / overwritten: `includes/db.php`, `error_log`, `*.log`, `restaurantInfo.txt` and `Logo.jpg` (edited from Settings), `README.md`, `db.txt`, `migrations/`, `.git*`.
+3. `rsync` uploads the code to `domains/btkdeals.com/public_html/pos` **without deleting** anything on the server. Never uploaded / overwritten: `includes/db.php`, `error_log`, `*.log`, `restaurantInfo.txt` (business name / phone / address, edited from Settings), `README.md`, `db.txt`, `migrations/`, `.git*`.
 4. `php -l` on the server and a smoke check that https://pos.btkdeals.com/login.php returns 200.
 
 Repository secrets used: `SSH_PRIVATE_KEY`, `SSH_KNOWN_HOSTS`, `SSH_HOST`, `SSH_PORT`, `SSH_USER`, `DEPLOY_PATH`. The deploy key's public half is in `~/.ssh/authorized_keys` on the server (comment `pos-github-actions-deploy`); remove that line to revoke it.
 
 **Database migrations are never run automatically.** When a commit adds a file in `migrations/`, back up the database and run it on the server by hand *before* pushing the code that needs it (or push with the workflow disabled, migrate, then re-run the workflow).
+
+## Logo / credits
+
+The app logo (`assets/logo.svg`, used in the navbar, login page and as favicon; `assets/logo-mono.svg` on printed receipts) is the "building-warehouse" icon from [Tabler Icons](https://tabler.io/icons) v3.50.0, MIT License, Copyright (c) 2020-2024 Paweł Kuna. The business name shown in the app comes from the first line of `restaurantInfo.txt` (Settings page) and defaults to "Inventory & POS".

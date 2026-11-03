@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $address = trim($_POST['address'] ?? '');
 
     if ($name === '') {
-        $error = 'Restaurant name is required.';
+        $error = 'Business name is required.';
     } else {
         $data = [$name, $tagline, $phone, $address];
         $content = implode(PHP_EOL, $data) . PHP_EOL;
@@ -40,35 +40,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Handle logo upload (overwrite Logo.jpg)
-    if (!$error && isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-        $tmp = $_FILES['logo']['tmp_name'];
-        $dest = __DIR__ . '/Logo.jpg';
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = finfo_file($finfo, $tmp);
-        finfo_close($finfo);
-        $allowed = ['image/jpeg', 'image/jpg', 'image/png'];
-        if (in_array($mime, $allowed, true)) {
-            if (move_uploaded_file($tmp, $dest)) {
-                $savedLogo = true;
-            } else {
-                $error = 'Failed to upload logo.';
-            }
-        } else {
-            $error = 'Logo must be a JPG or PNG image.';
-        }
-    }
 }
 ?>
 
 <h2 class="mb-3 fw-bold">Settings</h2>
-<p class="text-muted mb-4">Configure restaurant info and reports.</p>
+<p class="text-muted mb-4">Configure business info and reports.</p>
 
 <?php if ($saved || $savedLogo): ?>
   <div class="alert alert-success">
     <?php
       $msgs = [];
-      if ($saved) $msgs[] = 'Restaurant info saved';
+      if ($saved) $msgs[] = 'Business info saved';
       if ($savedLogo) $msgs[] = 'Logo updated';
       echo htmlspecialchars(implode(' & ', $msgs)) . '.';
     ?>
@@ -79,8 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <div class="card shadow-sm mb-4">
   <div class="card-body">
-    <h5 class="fw-semibold mb-3">Restaurant Info</h5>
-    <form method="post" class="row g-3" enctype="multipart/form-data">
+    <h5 class="fw-semibold mb-3">Business Info</h5>
+    <form method="post" class="row g-3">
       <div class="col-md-6">
         <label class="form-label">Name *</label>
         <input type="text" name="name" class="form-control" value="<?= htmlspecialchars($name) ?>" required>
@@ -98,9 +80,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <input type="text" name="address" class="form-control" value="<?= htmlspecialchars($address) ?>">
       </div>
       <div class="col-md-6">
-        <label class="form-label">Logo (JPG/PNG)</label>
-        <input type="file" name="logo" accept=".jpg,.jpeg,.png" class="form-control">
-        <small class="text-muted">Uploading replaces existing Logo.jpg</small>
+        <label class="form-label">Logo</label>
+        <div><img src="assets/logo.svg" alt="" width="40" height="40"> <small class="text-muted ms-2">Fixed app logo (assets/logo.svg)</small></div>
       </div>
       <div class="col-12">
         <button class="btn btn-primary">Save</button>

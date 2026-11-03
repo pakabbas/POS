@@ -82,12 +82,12 @@ jobs:
         run: |
           set -e
           # Never deleted, never overwritten: includes/db.php (credentials), logs, and files edited
-          # from the app's Settings page (restaurantInfo.txt, Logo.jpg). SQL migrations are NOT run here.
+          # from the app's Settings page (restaurantInfo.txt). SQL migrations are NOT run here.
           rsync -rlptvz --chmod=D755,F644 \
             --exclude='.git/' --exclude='.github/' --exclude='includes/db.php' \
             --exclude='error_log' --exclude='*.log' --exclude='README.md' --exclude='db.txt' \
             --exclude='migrations/' --exclude='.gitignore' --exclude='.DS_Store' \
-            --exclude='restaurantInfo.txt' --exclude='Logo.jpg' \
+            --exclude='restaurantInfo.txt' \
             -e ssh ./ "deploy-target:$DEPLOY_PATH/"
 
       - name: Lint PHP on server

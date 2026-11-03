@@ -180,7 +180,7 @@ $defaultTaxRate = $taxRow ? (float) $taxRow['TaxRate'] : 0.0;
   <div class="card-body">
     <div class="d-flex flex-wrap gap-2 align-items-center">
       <div class="flex-grow-1">
-        <h3 class="mb-1 fw-bold">Restaurant POS</h3>
+        <h3 class="mb-1 fw-bold">Inventory &amp; POS</h3>
         <p class="text-muted mb-0">Fast, modern, ready to ship</p>
             </div>
       <div class="d-flex gap-2">

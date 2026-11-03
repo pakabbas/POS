@@ -58,7 +58,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>POS Login</title>
+    <title>Login - Inventory &amp; POS</title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
 </head>
@@ -66,7 +67,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <?php
 // Load restaurant info for display
 $infoFile = __DIR__ . '/restaurantInfo.txt';
-$bizName = 'POS';
+$bizName = 'Inventory & POS';
 $tagline = '';
 $phone = '';
 $address = '';
@@ -80,10 +81,8 @@ if (file_exists($infoFile)) {
 ?>
 <div class="auth-page">
 <div class="card shadow-lg p-4 auth-card">
-    <?php if (file_exists(__DIR__ . '/Logo.jpg')): ?>
-      <img src="Logo.jpg" alt="Logo" class="login-logo">
-    <?php endif; ?>
-    <!-- <h4 class="text-center mb-1"><?= htmlspecialchars($bizName) ?></h4> -->
+    <img src="assets/logo.svg" alt="Inventory &amp; POS" class="login-logo" style="width:72px;height:72px;display:block;margin:0 auto 8px;">
+    <h4 class="text-center mb-1"><?= htmlspecialchars($bizName) ?></h4>
     <!-- <?php if ($tagline): ?><div class="text-center text-muted small mb-2"><?= htmlspecialchars($tagline) ?></div><?php endif; ?> -->
     <!-- <?php if ($phone): ?><div class="text-center text-muted small mb-3"><?= htmlspecialchars($phone) ?></div><?php endif; ?> -->
     <h5 class="text-center mb-3 auth-title">Admin Login</h5>

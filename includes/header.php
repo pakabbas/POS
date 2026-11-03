@@ -6,7 +6,7 @@ if (!defined('ALLOW_GUEST') && !isset($_SESSION['username'])) {
 }
 $role = $_SESSION['role'] ?? 'Admin';
 $infoFile = __DIR__ . '/../restaurantInfo.txt';
-$bizName = 'POS';
+$bizName = 'Inventory & POS';
 if (file_exists($infoFile)) {
     $lines = array_values(array_filter(array_map('trim', file($infoFile)), 'strlen'));
     $bizName = $lines[0] ?? $bizName;
@@ -17,7 +17,8 @@ if (file_exists($infoFile)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>POS Dashboard</title>
+    <title><?= htmlspecialchars($bizName) ?></title>
+    <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -26,7 +27,7 @@ if (file_exists($infoFile)) {
 
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
   <div class="container-fluid">
-    <a class="navbar-brand fw-bold" href="dashboard.php"><?= htmlspecialchars($bizName) ?> - Dashboard</a>
+    <a class="navbar-brand fw-bold d-flex align-items-center gap-2" href="dashboard.php"><img src="assets/logo.svg" alt="" width="30" height="30"><?= htmlspecialchars($bizName) ?></a>
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navMenu">
       <span class="navbar-toggler-icon"></span>
     </button>
