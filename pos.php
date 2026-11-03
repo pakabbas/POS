@@ -330,6 +330,22 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             transform: scale(1.1);
         }
         
+        .qty-input {
+            width: 4.2em;
+            height: 32px;
+            padding: 0 4px;
+            border: 2px solid #c7d2fe;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 15px;
+            color: #1e293b;
+            background: #fff;
+            -moz-appearance: textfield;
+        }
+        .qty-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,.25); }
+        .line-total { color: #2d3748; }
+
         .qty-display {
             font-weight: 600;
             min-width: 30px;
@@ -601,6 +617,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         .item-controls { gap: 6px; }
         .qty-btn { width: 26px; height: 26px; font-size: 16px; border-radius: 6px; }
         .qty-display { min-width: 22px; font-size: 13px; }
+        .qty-input { height: 28px; width: 4em; font-size: 14px; border-radius: 6px; }
         .remove-btn { padding: 5px 8px; font-size: 11px; }
         .empty-cart { padding: 16px 10px; }
         .cart-items .empty-cart-icon { font-size: 36px; margin-bottom: 6px; }
@@ -1085,12 +1102,15 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     itemDiv.innerHTML = `
                         <div class="item-info">
                             <div class="item-name">${esc(item.ProductName)}</div>
-                            <div class="item-price">Rs. ${item.Price.toFixed(2)} each</div>
+                            <div class="item-price">Rs. ${item.Price.toFixed(2)} × <span class="line-qty">${item.quantity}</span> = <strong class="line-total">Rs. ${(item.Price * item.quantity).toFixed(2)}</strong></div>
                         </div>
                         <div class="item-controls">
-                            <button class="qty-btn" onclick="updateQuantity(${index}, -1)">−</button>
-                            <span class="qty-display">${item.quantity}</span>
-                            <button class="qty-btn" onclick="updateQuantity(${index}, 1)">+</button>
+                            <button type="button" class="qty-btn" onclick="updateQuantity(${index}, -1)" aria-label="One less">−</button>
+                            <input type="text" class="qty-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"
+                                   value="${item.quantity}" data-index="${index}" aria-label="Crates of ${esc(item.ProductName)}"
+                                   onfocus="this.select()" onmouseup="return false"
+                                   oninput="qtyTyped(this)" onblur="qtyCommit(this)" onkeydown="qtyKey(event, this)">
+                            <button type="button" class="qty-btn" onclick="updateQuantity(${index}, 1)" aria-label="One more">+</button>
                             <button class="remove-btn" onclick="removeItem(${index})">✕</button>
                         </div>
                     `;
@@ -1102,12 +1122,57 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         }
         
         // Update quantity
+        const MAX_QTY = 9999;
         function updateQuantity(index, change) {
-            cart[index].quantity += change;
+            cart[index].quantity = Math.min(MAX_QTY, cart[index].quantity + change);
             if (cart[index].quantity <= 0) {
                 cart.splice(index, 1);
             }
             updateCart();
+        }
+
+        // Typed quantity (whole crates). Totals follow the typing; the field is cleaned up on blur / Enter.
+        function parseQty(v) {
+            v = String(v).trim();
+            if (!/^[0-9]{1,6}$/.test(v)) return null;
+            const n = parseInt(v, 10);
+            return n >= 1 ? Math.min(n, MAX_QTY) : null;
+        }
+        function refreshLine(input) {
+            const item = cart[+input.dataset.index];
+            const row = input.closest('.cart-item');
+            if (!item || !row) return;
+            row.querySelector('.line-qty').textContent = item.quantity;
+            row.querySelector('.line-total').textContent = 'Rs. ' + (item.Price * item.quantity).toFixed(2);
+        }
+        function qtyTyped(input) {
+            const digits = input.value.replace(/[^0-9]/g, '').slice(0, 4);
+            if (digits !== input.value) input.value = digits;
+            const item = cart[+input.dataset.index];
+            const n = parseQty(digits);
+            if (!item || n === null) return; // empty / 0 while typing: keep the last good quantity
+            item.quantity = n;
+            refreshLine(input);
+            updateSummary();
+        }
+        function qtyCommit(input) {
+            const item = cart[+input.dataset.index];
+            if (!item) return;
+            const n = parseQty(input.value);
+            if (n !== null) item.quantity = n;      // invalid -> keep previous quantity
+            input.value = item.quantity;
+            refreshLine(input);
+            updateSummary();
+        }
+        function qtyKey(e, input) {
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); input.blur(); }
+            else if (e.key === 'Escape') { input.value = cart[+input.dataset.index]?.quantity ?? 1; input.blur(); }
+            else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                const item = cart[+input.dataset.index]; if (!item) return;
+                item.quantity = Math.max(1, Math.min(MAX_QTY, item.quantity + (e.key === 'ArrowUp' ? 1 : -1)));
+                input.value = item.quantity; refreshLine(input); updateSummary(); input.select();
+            }
         }
         
         // Remove item
@@ -1150,6 +1215,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         
         // Open checkout modal
         function openCheckoutModal() {
+            if (document.activeElement && document.activeElement.classList.contains('qty-input')) document.activeElement.blur();
             if (cart.length === 0) {
                 alert('Cart is empty!');
                 return;

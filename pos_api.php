@@ -207,6 +207,17 @@ function createInvoice($conn, $data) {
         if (empty($data['items']) || !is_array($data['items'])) {
             throw new Exception("No items supplied");
         }
+        // Quantities are whole crates typed or clicked at the till: 1..9999 each.
+        foreach ($data['items'] as $item) {
+            $q = $item['quantity'] ?? null;
+            $pid = $item['ProductID'] ?? null;
+            if (!is_numeric($pid) || (int)$pid <= 0) {
+                throw new Exception("Invalid product in cart");
+            }
+            if (!is_numeric($q) || (float)$q != floor((float)$q) || (int)$q < 1 || (int)$q > 9999) {
+                throw new Exception("Quantity must be a whole number of crates between 1 and 9999");
+            }
+        }
 
         // Generate invoice number
         $invoiceNumber = 'INV-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
@@ -270,7 +281,7 @@ function createInvoice($conn, $data) {
         
         foreach ($data['items'] as $item) {
             $productId = intval($item['ProductID']);
-            $quantity = max(1, intval($item['quantity']));
+            $quantity = (int)$item['quantity'];
             $unitPrice = max(0, floatval($item['Price']));
             $totalPrice = $unitPrice * $quantity;
             
