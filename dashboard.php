@@ -36,6 +36,8 @@ $vendorPaid = (float)(q_one($conn, "SELECT COALESCE(SUM(AmountPaid),0) t FROM Ve
 $cashPurch = (float)(q_one($conn, "SELECT COALESCE(SUM(TotalAmount),0) t FROM PurchaseOrders WHERE Status = 'Received' AND PaymentType = 'Cash' AND OrderDate BETWEEN ? AND ?", 'ss', [$F, $T])['t'] ?? 0);
 $expenses = (float)(q_one($conn, "SELECT COALESCE(SUM(Amount),0) t FROM Expenses WHERE ExpenseDate BETWEEN ? AND ?", 'ss', [$P['from'], $P['to']])['t'] ?? 0);
 $cashOut = $vendorPaid + $cashPurch + $expenses;
+$expCount = (int)(q_one($conn, "SELECT COUNT(*) c FROM Expenses WHERE ExpenseDate BETWEEN ? AND ?", 'ss', [$P['from'], $P['to']])['c'] ?? 0);
+$expTop = q_one($conn, "SELECT COALESCE(NULLIF(Category, ''), 'Other') Category, SUM(Amount) t FROM Expenses WHERE ExpenseDate BETWEEN ? AND ? GROUP BY COALESCE(NULLIF(Category, ''), 'Other') ORDER BY t DESC LIMIT 1", 'ss', [$P['from'], $P['to']]);
 $netCash = $cashIn - $cashOut;
 
 // ---- Gross profit estimate ---------------------------------------------------
@@ -158,7 +160,27 @@ $pctCash = pct($s['CashSales'], $s['Total']);
 .empty-chart { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: .9rem; }
 .table-dash td, .table-dash th { font-size: .86rem; }
 .card:hover { transform: none; }
-@media (max-width: 576px) { .kpi .val { font-size: 1.2rem; } }
+@media (max-width: 576px) { .kpi .val { font-size: 1.1rem; } }
+.quick-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.qt { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 84px; padding: 10px 4px;
+      border-radius: 16px; background: #fff; border: 1px solid #dbeafe; color: #1e3a8a; text-decoration: none; text-align: center;
+      box-shadow: 0 1px 3px rgba(15,23,42,.06); transition: transform .12s, box-shadow .12s; }
+.qt:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(37,99,235,.15); color: #1e3a8a; }
+.qt-primary { background: linear-gradient(135deg, #2563eb, #06b6d4); border-color: transparent; color: #fff; }
+.qt-primary:hover { color: #fff; }
+.qt-ico { font-size: 1.6rem; line-height: 1; }
+.qt-lbl { font-size: .85rem; font-weight: 600; line-height: 1.15; }
+@media (max-width: 576px) {
+  .quick-tiles { gap: 6px; }
+  .qt { min-height: 72px; border-radius: 12px; padding: 8px 2px; }
+  .qt-ico { font-size: 1.35rem; }
+  .qt-lbl { font-size: .7rem; }
+  .kpi { padding: 10px 12px; }
+  .kpi .lbl { font-size: .68rem; }
+  .kpi .sub { font-size: .72rem; }
+  .kpi .ico { width: 30px; height: 30px; font-size: .95rem; }
+}
+
 </style>
 
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 dash-head">
@@ -169,13 +191,13 @@ $pctCash = pct($s['CashSales'], $s['Total']);
       <div class="text-muted small"><?= htmlspecialchars($P['label']) ?> · updated <?= date('d M Y, g:i A') ?> (PKT)</div>
     </div>
   </div>
-  <div class="d-flex flex-wrap gap-2">
-    <a class="btn btn-primary btn-sm" href="pos.php">🧾 New Sale</a>
-    <a class="btn btn-outline-primary btn-sm" href="purchases.php?new=1">🚚 Stock In</a>
-    <a class="btn btn-outline-primary btn-sm" href="customers.php">💵 Receive Payment</a>
-    <a class="btn btn-outline-primary btn-sm" href="vendor_payouts.php">🏦 Pay Vendor</a>
-    <a class="btn btn-outline-secondary btn-sm" href="reports.php?r=sales">📊 Reports</a>
-  </div>
+</div>
+
+<div class="quick-tiles mb-3">
+  <a class="qt qt-primary" href="pos.php"><span class="qt-ico">🧾</span><span class="qt-lbl">New Sale</span></a>
+  <a class="qt" href="purchases.php?new=1"><span class="qt-ico">🚚</span><span class="qt-lbl">Stock In</span></a>
+  <a class="qt" href="customers.php"><span class="qt-ico">💵</span><span class="qt-lbl">Receive Payment</span></a>
+  <a class="qt" href="vendor_payouts.php"><span class="qt-ico">🏦</span><span class="qt-lbl">Pay Vendor</span></a>
 </div>
 
 <div class="card shadow-sm mb-3">
@@ -220,12 +242,12 @@ $pctCash = pct($s['CashSales'], $s['Total']);
     </div>
   </div>
   <div class="col-6 col-lg-3">
-    <div class="card kpi">
-      <div class="d-flex justify-content-between"><div class="lbl">Money received</div><span class="ico ico-green">💵</span></div>
-      <div class="val text-success"><?= rs0($cashIn) ?></div>
-      <div class="sub">Cash sales <?= rs0($s['CashSales']) ?> + customer receipts <?= rs0($receipts) ?></div>
-      <div class="sub">Cash-in-hand part: <?= rs0((float)$s['CashSales'] + $receiptsCash) ?></div>
-    </div>
+    <a class="text-decoration-none" href="cash_summary.php?from=<?= $P['from'] ?>&to=<?= $P['to'] ?>"><div class="card kpi">
+      <div class="d-flex justify-content-between"><div class="lbl">Cash flow</div><span class="ico ico-green">💵</span></div>
+      <div class="val <?= $netCash < 0 ? 'text-danger' : 'text-success' ?>"><?= ($netCash > 0.5 ? '+' : ($netCash < -0.5 ? '−' : '')) . rs0(abs($netCash)) ?></div>
+      <div class="sub">In <?= rs0($cashIn) ?> <span class="d-none d-sm-inline">(sales + receipts)</span></div>
+      <div class="sub">Out <?= rs0($cashOut) ?> <span class="d-none d-sm-inline">(vendors, cash buys, expenses)</span></div>
+    </div></a>
   </div>
   <div class="col-6 col-lg-3">
     <div class="card kpi">
@@ -251,22 +273,22 @@ $pctCash = pct($s['CashSales'], $s['Total']);
   </div>
   <div class="col-6 col-lg-3">
     <a class="text-decoration-none" href="vendors.php"><div class="card kpi">
-      <div class="d-flex justify-content-between"><div class="lbl">We owe vendors</div><span class="ico ico-red">🚚</span></div>
+      <div class="d-flex justify-content-between"><div class="lbl">Vendor outstanding</div><span class="ico ico-red">🚚</span></div>
       <div class="val"><?= rs0($payable) ?></div>
-      <div class="sub"><?= count($owe) ? count(array_filter($vendBal, fn($v) => $v > 0.005)) . ' vendors with a balance · today' : 'Nothing payable' ?></div>
+      <div class="sub"><?= count($owe) ? count(array_filter($vendBal, fn($v) => $v > 0.005)) . ' vendors to pay · we owe' : 'Nothing payable' ?></div>
     </div></a>
   </div>
   <div class="col-6 col-lg-3">
-    <a class="text-decoration-none" href="cash_summary.php?from=<?= $P['from'] ?>&to=<?= $P['to'] ?>"><div class="card kpi">
-      <div class="d-flex justify-content-between"><div class="lbl">Net cash position</div><span class="ico ico-cyan">🏦</span></div>
-      <div class="val <?= $netCash < 0 ? 'text-danger' : 'text-success' ?>"><?= rs0($netCash) ?></div>
-      <div class="sub">In <?= rs0($cashIn) ?> − out <?= rs0($cashOut) ?></div>
-      <div class="sub">(vendor payouts <?= rs0($vendorPaid) ?>, cash purchases <?= rs0($cashPurch) ?>, expenses <?= rs0($expenses) ?>)</div>
+    <a class="text-decoration-none" href="Expense.php"><div class="card kpi">
+      <div class="d-flex justify-content-between"><div class="lbl">Expenses</div><span class="ico ico-violet">🧾</span></div>
+      <div class="val"><?= rs0($expenses) ?></div>
+      <div class="sub"><?= $expCount ?> entr<?= $expCount === 1 ? 'y' : 'ies' ?> · <?= htmlspecialchars($P['label']) ?></div>
+      <div class="sub"><?= $expTop ? 'Most on ' . htmlspecialchars($expTop['Category']) . ' ' . rs0($expTop['t']) : 'No expenses in this period' ?></div>
     </div></a>
   </div>
   <div class="col-6 col-lg-3">
     <a class="text-decoration-none" href="inventory.php"><div class="card kpi">
-      <div class="d-flex justify-content-between"><div class="lbl">Stock in hand</div><span class="ico ico-blue">📦</span></div>
+      <div class="d-flex justify-content-between"><div class="lbl">Inventory</div><span class="ico ico-blue">📦</span></div>
       <div class="val"><?= $q($stockCrates) ?> crates</div>
       <div class="sub">≈ <?= rs0($stockValue) ?> at cost<?= $lowCount ? ' · <span class="text-danger fw-semibold">' . $lowCount . ' low</span>' : '' ?></div>
       <div class="sub">Breakage this period: <?= $q($breakageCrates) ?> crates</div>
