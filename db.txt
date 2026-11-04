@@ -57,7 +57,7 @@ CREATE TABLE `InvoiceItems` (
   `InvoiceItemID` int(11) NOT NULL AUTO_INCREMENT,
   `InvoiceID` int(11) DEFAULT NULL,
   `ProductID` int(11) DEFAULT NULL,
-  `Quantity` int(11) DEFAULT NULL,
+  `Quantity` decimal(12,4) DEFAULT NULL,
   `UnitPrice` decimal(10,2) DEFAULT NULL,
   `TotalPrice` decimal(10,2) DEFAULT NULL,
   `Status` varchar(50) DEFAULT 'Pending',
@@ -72,7 +72,7 @@ CREATE TABLE `InvoiceItems_Deleted` (
   `InvoiceItemID` int(11) NOT NULL,
   `InvoiceID` int(11) DEFAULT NULL,
   `ProductID` int(11) DEFAULT NULL,
-  `Quantity` int(11) DEFAULT NULL,
+  `Quantity` decimal(12,4) DEFAULT NULL,
   `UnitPrice` decimal(10,2) DEFAULT NULL,
   `TotalPrice` decimal(10,2) DEFAULT NULL,
   `DeletionReason` text DEFAULT NULL,
@@ -141,12 +141,12 @@ CREATE TABLE `Payments` (
 CREATE TABLE `ProductInventory` (
   `InventoryID` int(11) NOT NULL AUTO_INCREMENT,
   `ProductID` int(11) NOT NULL,
-  `OpeningStock` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `OpeningStock` decimal(12,4) NOT NULL DEFAULT 0.0000,
   `OpeningStockDate` datetime DEFAULT NULL,
-  `CurrentStock` decimal(10,2) DEFAULT 0.00,
-  `ReorderLevel` decimal(10,2) DEFAULT 0.00,
-  `ReorderQuantity` decimal(10,2) DEFAULT 0.00,
-  `UnitOfMeasure` varchar(50) DEFAULT 'Unit',
+  `CurrentStock` decimal(12,4) DEFAULT 0.0000,
+  `ReorderLevel` decimal(12,4) DEFAULT 0.0000,
+  `ReorderQuantity` decimal(12,4) DEFAULT 0.0000,
+  `UnitOfMeasure` varchar(50) DEFAULT 'Peti',
   `Location` varchar(100) DEFAULT NULL,
   `LastRestockedDate` datetime DEFAULT NULL,
   `LastRestockedBy` int(11) DEFAULT NULL,
@@ -182,10 +182,10 @@ CREATE TABLE `PurchaseOrderItems` (
   `POItemID` int(11) NOT NULL AUTO_INCREMENT,
   `PurchaseOrderID` int(11) NOT NULL,
   `ProductID` int(11) NOT NULL,
-  `QuantityOrdered` decimal(10,2) NOT NULL DEFAULT 0.00,
+  `QuantityOrdered` decimal(12,4) NOT NULL DEFAULT 0.0000,
   `UnitPrice` decimal(10,2) NOT NULL DEFAULT 0.00,
   `TotalPrice` decimal(12,2) NOT NULL DEFAULT 0.00,
-  `QuantityReceived` decimal(10,2) DEFAULT 0.00,
+  `QuantityReceived` decimal(12,4) DEFAULT 0.0000,
   `Notes` text DEFAULT NULL,
   `CreatedAt` datetime DEFAULT current_timestamp(),
   `UpdatedAt` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -232,11 +232,18 @@ CREATE TABLE `PurchaseOrders` (
   CONSTRAINT `PurchaseOrders_ibfk_4` FOREIGN KEY (`ReceivedBy`) REFERENCES `Users` (`UserID`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE `SchemaMigrations` (
+  `Name` varchar(100) NOT NULL,
+  `AppliedAt` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`Name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE `StockMovements` (
   `MovementID` int(11) NOT NULL AUTO_INCREMENT,
   `ProductID` int(11) NOT NULL,
   `MovementType` enum('Purchase','Sale','Adjustment','Return','Transfer','Waste','Expired') NOT NULL,
-  `Quantity` decimal(10,2) NOT NULL,
+  `Quantity` decimal(12,4) NOT NULL,
+  `Crates` decimal(10,2) DEFAULT NULL COMMENT 'adjustment as entered, in crates (12 crates = 1 peti)',
   `ReferenceID` int(11) DEFAULT NULL,
   `ReferenceType` varchar(50) DEFAULT NULL,
   `MovementDate` datetime DEFAULT current_timestamp(),

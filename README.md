@@ -10,11 +10,11 @@ Point of sale and inventory management app (PHP + MySQL), live at https://pos.bt
 
 ## Modules
 
-- **POS** (`pos.php`, `pos_api.php`, `receipt.php`): cash or credit sales per crate, customer search / new customer popup. Product tiles show crates in stock (display only, sales are never blocked).
+- **POS** (`pos.php`, `pos_api.php`, `receipt.php`): cash or credit sales per **peti** (1 peti = 12 crates = 360 eggs; whole peti typed or clicked in the cart), customer search / new customer popup. Product tiles show stock in peti (plus loose crates) (display only, sales are never blocked).
 - **Customers** (`customers.php`, `customer_ledger.php`): customer balances = opening + credit sales − payments received.
 - **Vendors** (`vendors.php`): add / edit / search / deactivate vendors, current payable per vendor, Pay popup.
-- **Purchases / stock in** (`purchases.php`): purchase entries from a vendor with product lines (crates × cost per crate), Cash (paid in full) or Credit with an optional amount paid now. Admins can delete a wrong entry (its stock and at-purchase payment are removed too); to change one, delete it and enter it again.
-- **Inventory** (`inventory.php`): crates in stock per product, low-stock view, stock adjustments (damage / breakage, expired, return to vendor, count correction) with a reason, and **Set count** to enter a physical count and low-stock level.
+- **Purchases / stock in** (`purchases.php`): purchase entries from a vendor with product lines (peti × cost per peti), Cash (paid in full) or Credit with an optional amount paid now. Admins can delete a wrong entry (its stock and at-purchase payment are removed too); to change one, delete it and enter it again.
+- **Inventory** (`inventory.php`): stock per product in peti (with the loose crates, e.g. `9 peti 7 crates`), low-stock view, stock adjustments **entered in crates** (damage / breakage, expired, return to vendor, count correction) with a reason, and **Set count** to enter a physical count (peti + crates) and the low-stock level (peti).
 - **Vendor ledger** (`vendor_ledger.php`): per vendor, date range, printable running payable.
 - **Vendor payouts** (`vendor_payouts.php`): record and list payments to vendors (Cash, Bank Transfer, Cheque, Easypaisa, JazzCash, Other) with reference.
 - **Cash summary** (`cash_summary.php`, admin): cash sales + customer receipts − vendor payouts − cash purchases − expenses for a date range, all methods and cash only.
@@ -22,7 +22,8 @@ Point of sale and inventory management app (PHP + MySQL), live at https://pos.bt
 ### How balances and stock are calculated
 
 - Vendor payable = vendor opening balance + credit purchases − all payments to the vendor (including the amount paid at a credit purchase). Cash purchases do not touch the ledger.
-- Crates in stock = counted stock (at the product's count time) + purchases − crates sold on invoices ± adjustments, counting only entries after the count time. Stock is computed from the invoices / purchases / adjustments themselves, so deleting an invoice in Reports puts its crates back. The 2026-11-02 migration starts every product at 0 crates from the moment it is run; enter the real count on Inventory → Set count.
+- Units: the business trades in **peti** (1 peti = 12 crates = 360 eggs). All prices are per peti and all trading quantities (sales, purchases, counts, low-stock levels, reports) are stored in peti as `DECIMAL(12,4)`. Breakage / stock adjustments are entered in crates: the crates typed are kept in `StockMovements.Crates` and the stock effect is `Crates / 12` peti in `StockMovements.Quantity` (migration `2026-11-04_peti_units.sql` converted the earlier crate data: quantities ÷ 12, unit prices × 12, totals unchanged).
+- Peti in stock = counted stock (at the product's count time) + purchases − peti sold on invoices ± adjustments, counting only entries after the count time. Stock is computed from the invoices / purchases / adjustments themselves, so deleting an invoice in Reports puts its peti back. The 2026-11-02 migration starts every product at 0 from the moment it is run; enter the real count on Inventory → Set count.
 
 ## Deployment (GitHub Actions)
 

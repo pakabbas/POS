@@ -124,11 +124,10 @@ body {
           <td class="bold"><?= htmlspecialchars($it['ProductName'] ?? 'Item') ?></td>
           <td class="price"><?= moneyPk($it['TotalPrice']) ?></td>
         </tr>
-        <?php if ((int)$it['Quantity'] > 1): ?>
+        <?php $rq = rtrim(rtrim(number_format((float)$it['Quantity'], 4, '.', ''), '0'), '.'); ?>
         <tr>
-          <td class="small muted" colspan="2"><?= $it['Quantity'] ?> x <?= moneyPk($it['UnitPrice']) ?></td>
+          <td class="small muted" colspan="2"><?= $rq ?> peti x <?= moneyPk($it['UnitPrice']) ?> / peti</td>
         </tr>
-        <?php endif; ?>
       <?php endforeach; ?>
     </table>
   </div>

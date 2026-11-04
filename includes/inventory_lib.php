@@ -1,12 +1,12 @@
 <?php
-// Stock (in crates) per product, computed from the source documents so it never drifts:
+// Stock (in PETI; 1 peti = 12 crates = 360 eggs) per product, computed from the source documents so it never drifts:
 //   Stock = ProductInventory.OpeningStock (physical count at OpeningStockDate)
 //         + purchased  (PurchaseOrderItems.QuantityReceived of Received purchases)
-//         + adjustments (StockMovements.Quantity, signed: damage/breakage negative, corrections +/-)
+//         + adjustments (StockMovements.Quantity in peti, signed; entered in crates = StockMovements.Crates / 12)
 //         - sold       (InvoiceItems.Quantity of invoices)
 // Only purchases / adjustments / sales dated on or after OpeningStockDate are counted
 // (no OpeningStockDate = count everything). Deleting an invoice in reports.php puts its
-// crates back automatically because its InvoiceItems rows are removed.
+// peti back automatically because its InvoiceItems rows are removed.
 
 function stock_adjustment_types(): array
 {
@@ -57,15 +57,15 @@ function stock_levels(mysqli $conn, bool $activeOnly = false, ?int $productId = 
     $out = [];
     foreach ($conn->query($sql)->fetch_all(MYSQLI_ASSOC) as $r) {
         foreach (['OpeningStock', 'ReorderLevel', 'Purchased', 'Sold', 'Adjusted'] as $k) {
-            $r[$k] = round((float)$r[$k], 2);
+            $r[$k] = round((float)$r[$k], 4);
         }
-        $r['Stock'] = round($r['OpeningStock'] + $r['Purchased'] + $r['Adjusted'] - $r['Sold'], 2);
+        $r['Stock'] = round($r['OpeningStock'] + $r['Purchased'] + $r['Adjusted'] - $r['Sold'], 4);
         $out[(int)$r['ProductID']] = $r;
     }
     return $out;
 }
 
-/** [ProductID => crates in stock]; returns [] if the inventory tables are missing (migration not run yet). */
+/** [ProductID => peti in stock]; returns [] if the inventory tables are missing (migration not run yet). */
 function stock_map(mysqli $conn): array
 {
     try {
@@ -83,4 +83,42 @@ function qty_fmt($q): string
 {
     $q = round((float)$q, 2);
     return ($q == floor($q)) ? number_format($q, 0) : number_format($q, 2);
+}
+
+// ---- Units: the shop trades in PETI; breakage / adjustments are entered in crates ----
+const CRATES_PER_PETI = 12;
+const EGGS_PER_CRATE = 30;
+
+/** Peti (decimal) -> whole crates, rounded (5/12 peti stored as 0.4167 -> 5 crates). */
+function peti_to_crates($peti): int
+{
+    return (int)round((float)$peti * CRATES_PER_PETI);
+}
+
+/** "41 peti 7 crates", "41 peti", "7 crates", "-1 peti 2 crates", "0 peti". */
+function peti_fmt($peti, bool $html = false): string
+{
+    $c = peti_to_crates($peti);
+    $neg = $c < 0;
+    $c = abs($c);
+    $p = intdiv($c, CRATES_PER_PETI);
+    $r = $c % CRATES_PER_PETI;
+    $parts = [];
+    if ($p > 0 || $r === 0) $parts[] = number_format($p) . ' peti';
+    if ($r > 0) $parts[] = $html ? '<span class="text-muted">' . $r . ' crate' . ($r === 1 ? '' : 's') . '</span>' : $r . ' crate' . ($r === 1 ? '' : 's');
+    return ($neg ? '−' : '') . implode(' ', $parts);
+}
+
+/** Crates with sign, e.g. "-5 crates" / "+1 crate". */
+function crates_fmt($crates, bool $signed = false): string
+{
+    $c = round((float)$crates, 2);
+    $txt = qty_fmt(abs($c)) . ' crate' . (abs($c) == 1.0 ? '' : 's');
+    return ($c < 0 ? '−' : ($signed && $c > 0 ? '+' : '')) . $txt;
+}
+
+/** Crates of an adjustment row: the value typed (Crates) or derived from the peti effect. */
+function movement_crates(array $m): float
+{
+    return $m['Crates'] !== null && $m['Crates'] !== '' ? (float)$m['Crates'] : round((float)$m['Quantity'] * CRATES_PER_PETI, 2);
 }

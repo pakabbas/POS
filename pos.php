@@ -1014,8 +1014,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         function stockLabel(product) {
             if (product.Stock === null || product.Stock === undefined) return '';
             const q = parseFloat(product.Stock);
-            const txt = Number.isInteger(q) ? q : q.toFixed(2);
-            return `<div class="product-stock${q <= 0 ? ' out' : ''}">${txt} crates in stock</div>`;
+            const txt = product.StockText || ((Number.isInteger(q) ? q : q.toFixed(2)) + ' peti');
+            return `<div class="product-stock${q <= 0 ? ' out' : ''}">${esc(txt)} in stock</div>`;
         }
 
         function renderFilteredProducts() {
@@ -1043,7 +1043,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 card.innerHTML = `
                     <div class="product-icon">${getIcon(product)}</div>
                     <div class="product-name">${esc(product.ProductName)}</div>
-                    <div class="product-price">Rs. ${parseFloat(product.Price).toFixed(2)}</div>
+                    <div class="product-price">Rs. ${parseFloat(product.Price).toFixed(2)} <small style="font-weight:500;opacity:.75">/ peti</small></div>
                     ${stockLabel(product)}
                 `;
                 grid.appendChild(card);
@@ -1102,12 +1102,12 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     itemDiv.innerHTML = `
                         <div class="item-info">
                             <div class="item-name">${esc(item.ProductName)}</div>
-                            <div class="item-price">Rs. ${item.Price.toFixed(2)} × <span class="line-qty">${item.quantity}</span> = <strong class="line-total">Rs. ${(item.Price * item.quantity).toFixed(2)}</strong></div>
+                            <div class="item-price">Rs. ${item.Price.toFixed(2)}/peti × <span class="line-qty">${item.quantity}</span> peti = <strong class="line-total">Rs. ${(item.Price * item.quantity).toFixed(2)}</strong></div>
                         </div>
                         <div class="item-controls">
                             <button type="button" class="qty-btn" onclick="updateQuantity(${index}, -1)" aria-label="One less">−</button>
                             <input type="text" class="qty-input" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off"
-                                   value="${item.quantity}" data-index="${index}" aria-label="Crates of ${esc(item.ProductName)}"
+                                   value="${item.quantity}" data-index="${index}" aria-label="Peti of ${esc(item.ProductName)}"
                                    onfocus="this.select()" onmouseup="return false"
                                    oninput="qtyTyped(this)" onblur="qtyCommit(this)" onkeydown="qtyKey(event, this)">
                             <button type="button" class="qty-btn" onclick="updateQuantity(${index}, 1)" aria-label="One more">+</button>
@@ -1131,7 +1131,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             updateCart();
         }
 
-        // Typed quantity (whole crates). Totals follow the typing; the field is cleaned up on blur / Enter.
+        // Typed quantity (whole peti; 1 peti = 12 crates). Totals follow the typing; the field is cleaned up on blur / Enter.
         function parseQty(v) {
             v = String(v).trim();
             if (!/^[0-9]{1,6}$/.test(v)) return null;

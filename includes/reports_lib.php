@@ -1,5 +1,5 @@
 <?php
-// Shared helpers for the dashboard and reports (egg wholesale: money in Rs., quantities in crates).
+// Shared helpers for the dashboard and reports (egg wholesale: money in Rs., quantities in PETI = 12 crates; breakage in crates).
 // All dates are Asia/Karachi; ranges are passed to SQL as 'Y-m-d 00:00:00' .. 'Y-m-d 23:59:59'.
 
 require_once __DIR__ . '/customers_lib.php';
@@ -173,7 +173,7 @@ function stock_flows(mysqli $conn, string $fromDt, string $toDt): array
             WHERE po.Status = 'Received' AND po.OrderDate BETWEEN ? AND ? GROUP BY poi.ProductID", 'ss', [$fromDt, $toDt]) as $r) $add((int)$r['ProductID'], 'Purchased', $r['q']);
     foreach (q_all($conn, "SELECT ii.ProductID, SUM(ii.Quantity) q FROM InvoiceItems ii JOIN Invoices i ON i.InvoiceID = ii.InvoiceID
             WHERE i.InvoiceDate BETWEEN ? AND ? GROUP BY ii.ProductID", 'ss', [$fromDt, $toDt]) as $r) $add((int)$r['ProductID'], 'Sold', $r['q']);
-    foreach (q_all($conn, "SELECT ProductID, SUM(Quantity) q, SUM(CASE WHEN MovementType IN ('Waste','Expired') THEN -Quantity ELSE 0 END) b FROM StockMovements
+    foreach (q_all($conn, "SELECT ProductID, SUM(Quantity) q, SUM(CASE WHEN MovementType IN ('Waste','Expired') THEN -COALESCE(Crates, Quantity * 12) ELSE 0 END) b FROM StockMovements
             WHERE MovementType NOT IN ('Purchase','Sale') AND MovementDate BETWEEN ? AND ? GROUP BY ProductID", 'ss', [$fromDt, $toDt]) as $r) {
         $add((int)$r['ProductID'], 'Adjusted', $r['q']);
         $add((int)$r['ProductID'], 'Breakage', $r['b']);
@@ -181,7 +181,7 @@ function stock_flows(mysqli $conn, string $fromDt, string $toDt): array
     return $out;
 }
 
-/** Crates in stock per product at a moment (uses each product's count as the anchor). [ProductID => float] */
+/** Peti in stock per product at a moment (uses each product's count as the anchor). [ProductID => float] */
 function stock_at(mysqli $conn, string $atDt): array
 {
     $out = [];
@@ -201,7 +201,7 @@ function stock_at(mysqli $conn, string $atDt): array
             $f = stock_flows($conn, date('Y-m-d H:i:s', strtotime($atDt) + 1), date('Y-m-d H:i:s', strtotime($osd) - 1))[$pid] ?? null;
             $out[$pid] = $os - ($f ? $f['Purchased'] + $f['Adjusted'] - $f['Sold'] : 0.0);
         }
-        $out[$pid] = round($out[$pid], 2);
+        $out[$pid] = round($out[$pid], 4);
     }
     return $out;
 }

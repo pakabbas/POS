@@ -129,11 +129,11 @@ $recent = q_all($conn, "SELECT i.InvoiceID, i.InvoiceNumber, i.InvoiceDate, i.To
         COALESCE(c.CustomerName, NULLIF(i.CustomerName, ''), 'Walk-in') AS Name,
         (SELECT COALESCE(SUM(ii.Quantity),0) FROM InvoiceItems ii WHERE ii.InvoiceID = i.InvoiceID) AS Crates
     FROM Invoices i LEFT JOIN Customers c ON c.CustomerID = i.CustomerID ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC LIMIT 8");
-$breakage = q_all($conn, "SELECT sm.MovementDate, sm.MovementType, sm.Quantity, sm.Notes, p.ProductName
+$breakage = q_all($conn, "SELECT sm.MovementDate, sm.MovementType, sm.Quantity, sm.Crates, sm.Notes, p.ProductName
     FROM StockMovements sm JOIN Products p ON p.ProductID = sm.ProductID
     WHERE sm.MovementType NOT IN ('Purchase','Sale') AND sm.MovementDate BETWEEN ? AND ?
     ORDER BY sm.MovementDate DESC LIMIT 8", 'ss', [$F, $T]);
-$breakageCrates = (float)(q_one($conn, "SELECT COALESCE(-SUM(Quantity),0) t FROM StockMovements WHERE MovementType IN ('Waste','Expired') AND MovementDate BETWEEN ? AND ?", 'ss', [$F, $T])['t'] ?? 0);
+$breakageCrates = (float)(q_one($conn, "SELECT COALESCE(-SUM(COALESCE(Crates, Quantity * 12)),0) t FROM StockMovements WHERE MovementType IN ('Waste','Expired') AND MovementDate BETWEEN ? AND ?", 'ss', [$F, $T])['t'] ?? 0);
 
 $sizeColors = ['#b45309', '#2563eb', '#0891b2', '#16a34a', '#a855f7', '#f59e0b', '#64748b'];
 $n0 = fn($v) => number_format((float)$v, 0);
@@ -225,8 +225,8 @@ $pctCash = pct($s['CashSales'], $s['Total']);
     <div class="card kpi">
       <div class="d-flex justify-content-between"><div class="lbl">Sales</div><span class="ico ico-blue">🥚</span></div>
       <div class="val"><?= rs0($s['Total']) ?></div>
-      <div class="sub"><strong><?= $q($cratesSold) ?></strong> crates · <?= (int)$s['Invoices'] ?> invoices</div>
-      <div class="sub">Avg <?= $cratesSold > 0 ? rs0($s['Total'] / $cratesSold) : '—' ?> / crate</div>
+      <div class="sub"><strong><?= $q($cratesSold) ?></strong> peti · <?= (int)$s['Invoices'] ?> invoices</div>
+      <div class="sub">Avg <?= $cratesSold > 0 ? rs0($s['Total'] / $cratesSold) : '—' ?> / peti</div>
     </div>
   </div>
   <div class="col-6 col-lg-3">
@@ -254,11 +254,11 @@ $pctCash = pct($s['CashSales'], $s['Total']);
       <div class="d-flex justify-content-between"><div class="lbl">Gross profit <span class="badge bg-light text-secondary border">estimate</span></div><span class="ico ico-violet">📈</span></div>
       <?php if ($knownCrates > 0): ?>
         <div class="val <?= $gp < 0 ? 'text-danger' : '' ?>"><?= rs0($gp) ?></div>
-        <div class="sub"><?= $gpMargin ?>% margin · <?= rs0($knownCrates > 0 ? $gp / $knownCrates : 0) ?> / crate</div>
+        <div class="sub"><?= $gpMargin ?>% margin · <?= rs0($knownCrates > 0 ? $gp / $knownCrates : 0) ?> / peti</div>
       <?php else: ?>
         <div class="val text-muted">—</div>
       <?php endif; ?>
-      <div class="sub"><?= $unknownCrates > 0 ? $q($unknownCrates) . ' crates sold without a purchase cost' : ($cratesSold > 0 ? 'Using average purchase cost per size' : 'No sales in this period') ?></div>
+      <div class="sub"><?= $unknownCrates > 0 ? $q($unknownCrates) . ' peti sold without a purchase cost' : ($cratesSold > 0 ? 'Using average purchase cost per size' : 'No sales in this period') ?></div>
     </div>
   </div>
 </div>
@@ -289,9 +289,9 @@ $pctCash = pct($s['CashSales'], $s['Total']);
   <div class="col-6 col-lg-3">
     <a class="text-decoration-none" href="inventory.php"><div class="card kpi">
       <div class="d-flex justify-content-between"><div class="lbl">Inventory</div><span class="ico ico-blue">📦</span></div>
-      <div class="val"><?= $q($stockCrates) ?> crates</div>
+      <div class="val"><?= peti_fmt($stockCrates) ?></div>
       <div class="sub">≈ <?= rs0($stockValue) ?> at cost<?= $lowCount ? ' · <span class="text-danger fw-semibold">' . $lowCount . ' low</span>' : '' ?></div>
-      <div class="sub">Breakage this period: <?= $q($breakageCrates) ?> crates</div>
+      <div class="sub">Breakage this period: <?= crates_fmt($breakageCrates) ?></div>
     </div></a>
   </div>
 </div>
@@ -309,12 +309,12 @@ $pctCash = pct($s['CashSales'], $s['Total']);
           <span class="size"><span class="dot" style="background:<?= $color ?>"></span><?= htmlspecialchars($r['ProductName']) ?></span>
           <?php if ($r['Low']): ?><span class="badge bg-danger">Low</span><?php endif; ?>
         </div>
-        <div class="stock mt-1 <?= $r['Stock'] <= 0 ? 'text-danger' : '' ?>"><?= $q($r['Stock']) ?> <small class="fs-6 fw-normal text-muted">crates</small></div>
+        <div class="stock mt-1 <?= $r['Stock'] <= 0 ? 'text-danger' : '' ?>"><?= peti_fmt($r['Stock'], true) ?></div>
         <div class="small text-muted">
           <?php if ($r['Stock'] <= 0): ?>
-            <strong class="text-danger"><?= $r['Stock'] < 0 ? 'Below zero — recount' : 'Out of stock' ?></strong><?= $r['AvgDaily'] > 0 ? ' · sells ' . number_format($r['AvgDaily'], 1) . '/day' : '' ?>
+            <strong class="text-danger"><?= $r['Stock'] < 0 ? 'Below zero — recount' : 'Out of stock' ?></strong><?= $r['AvgDaily'] > 0 ? ' · sells ' . number_format($r['AvgDaily'], 1) . ' peti/day' : '' ?>
           <?php elseif ($r['DaysLeft'] !== null): ?>
-            ≈ <strong class="<?= $r['DaysLeft'] < 2 ? 'text-danger' : '' ?>"><?= number_format($r['DaysLeft'], 1) ?> days</strong> left · sells <?= number_format($r['AvgDaily'], 1) ?>/day
+            ≈ <strong class="<?= $r['DaysLeft'] < 2 ? 'text-danger' : '' ?>"><?= number_format($r['DaysLeft'], 1) ?> days</strong> left · sells <?= number_format($r['AvgDaily'], 1) ?> peti/day
           <?php else: ?>
             No sales in last 14 days
           <?php endif; ?>
@@ -335,13 +335,13 @@ $pctCash = pct($s['CashSales'], $s['Total']);
   </div>
   <div class="col-lg-4">
     <div class="card shadow-sm h-100"><div class="card-body">
-      <h5 class="section-title mb-2">Crates sold by size <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
+      <h5 class="section-title mb-2">Peti sold by size <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
       <div class="chart-box"><canvas id="sizeChart"></canvas></div>
     </div></div>
   </div>
   <div class="col-lg-8">
     <div class="card shadow-sm h-100"><div class="card-body">
-      <h5 class="section-title mb-2">Purchased vs sold (crates) <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
+      <h5 class="section-title mb-2">Purchased vs sold (peti) <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
       <div class="chart-box sm"><canvas id="pvsChart"></canvas></div>
     </div></div>
   </div>
@@ -356,12 +356,12 @@ $pctCash = pct($s['CashSales'], $s['Total']);
 <!-- Margin per size -->
 <div class="card shadow-sm mb-4"><div class="card-body">
   <div class="d-flex justify-content-between align-items-center mb-2">
-    <h5 class="section-title">Price & margin per crate <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
+    <h5 class="section-title">Price & margin per peti <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
     <a class="small" href="reports.php?r=sales&<?= period_query($P) ?>">Sales by size report →</a>
   </div>
   <div class="table-responsive">
     <table class="table table-sm table-dash align-middle mb-0">
-      <thead class="table-light"><tr><th>Size</th><th class="text-end">Crates sold</th><th class="text-end">Sales</th><th class="text-end">Avg sell / crate</th><th class="text-end">Avg cost / crate</th><th class="text-end">Margin / crate</th><th class="text-end">Est. profit</th></tr></thead>
+      <thead class="table-light"><tr><th>Size</th><th class="text-end">Peti sold</th><th class="text-end">Sales</th><th class="text-end">Avg sell / peti</th><th class="text-end">Avg cost / peti</th><th class="text-end">Margin / peti</th><th class="text-end">Est. profit</th></tr></thead>
       <tbody>
         <?php foreach ($byProduct as $r): $c = (float)$r['Crates']; ?>
           <tr>
@@ -378,7 +378,7 @@ $pctCash = pct($s['CashSales'], $s['Total']);
       </tbody>
     </table>
   </div>
-  <div class="small text-muted mt-1">Cost = weighted average purchase cost per crate (from Purchases), so profit is an estimate. Discounts given are deducted in the Gross profit card.</div>
+  <div class="small text-muted mt-1">Cost = weighted average purchase cost per peti (from Purchases), so profit is an estimate. Discounts given are deducted in the Gross profit card.</div>
 </div></div>
 
 <div class="row g-3 mb-4">
@@ -389,7 +389,7 @@ $pctCash = pct($s['CashSales'], $s['Total']);
         <a class="small" href="reports.php?r=customers&<?= period_query($P) ?>">All →</a>
       </div>
       <table class="table table-sm table-dash mb-0">
-        <thead class="table-light"><tr><th>Customer</th><th class="text-end">Crates</th><th class="text-end">Sales</th><th class="text-end">Invoices</th></tr></thead>
+        <thead class="table-light"><tr><th>Customer</th><th class="text-end">Peti</th><th class="text-end">Sales</th><th class="text-end">Invoices</th></tr></thead>
         <tbody>
           <?php foreach ($topCustomers as $r): ?>
             <tr>
@@ -454,7 +454,7 @@ $pctCash = pct($s['CashSales'], $s['Total']);
         <a class="small" href="reports.php">Invoices →</a>
       </div>
       <table class="table table-sm table-dash mb-0">
-        <thead class="table-light"><tr><th>Invoice</th><th>Customer</th><th class="text-end">Crates</th><th class="text-end">Total</th></tr></thead>
+        <thead class="table-light"><tr><th>Invoice</th><th>Customer</th><th class="text-end">Peti</th><th class="text-end">Total</th></tr></thead>
         <tbody>
           <?php foreach ($recent as $r): ?>
             <tr>
@@ -483,7 +483,7 @@ $pctCash = pct($s['CashSales'], $s['Total']);
               <td class="text-nowrap"><?= date('d M, g:i A', strtotime($r['MovementDate'])) ?></td>
               <td><?= htmlspecialchars($r['ProductName']) ?></td>
               <td><?= htmlspecialchars($r['MovementType'] === 'Waste' ? 'Damage / breakage' : $r['MovementType']) ?></td>
-              <td class="text-end <?= $r['Quantity'] < 0 ? 'text-danger' : 'text-success' ?>"><?= ($r['Quantity'] > 0 ? '+' : '') . $q($r['Quantity']) ?></td>
+              <?php $mc = movement_crates($r); ?><td class="text-end <?= $mc < 0 ? 'text-danger' : 'text-success' ?>"><?= crates_fmt($mc, true) ?></td>
               <td class="small"><?= htmlspecialchars($r['Notes'] ?? '') ?></td>
             </tr>
           <?php endforeach; ?>
@@ -514,12 +514,12 @@ $pctCash = pct($s['CashSales'], $s['Total']);
   if (hasData(D.trendCrates) || hasData(D.trendAmount)) {
     new Chart(document.getElementById('trendChart'), {
       data: { labels: D.trendLabels, datasets: [
-        { type: 'bar', label: 'Crates', data: D.trendCrates, backgroundColor: 'rgba(34,211,238,0.55)', borderRadius: 4, yAxisID: 'y' },
+        { type: 'bar', label: 'Peti', data: D.trendCrates, backgroundColor: 'rgba(34,211,238,0.55)', borderRadius: 4, yAxisID: 'y' },
         { type: 'line', label: 'Sales (Rs.)', data: D.trendAmount, borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,0.1)', tension: 0.3, pointRadius: 2, fill: true, yAxisID: 'y1' }
       ]},
       options: { interaction: { mode: 'index', intersect: false },
-        plugins: { tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? ' ' + rs(c.parsed.y) : ' ' + c.parsed.y + ' crates' } } },
-        scales: { y: { beginAtZero: true, title: { display: true, text: 'Crates' } },
+        plugins: { tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? ' ' + rs(c.parsed.y) : ' ' + c.parsed.y + ' peti' } } },
+        scales: { y: { beginAtZero: true, title: { display: true, text: 'Peti' } },
                   y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, ticks: { callback: v => (v >= 1000 ? (v / 1000) + 'k' : v) } },
                   x: { ticks: { maxTicksLimit: 10 } } } }
     });
@@ -529,9 +529,9 @@ $pctCash = pct($s['CashSales'], $s['Total']);
     new Chart(document.getElementById('sizeChart'), {
       type: 'doughnut',
       data: { labels: D.sizeLabels, datasets: [{ data: D.sizeCrates, backgroundColor: colors }] },
-      options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + c.parsed + ' crates' } } }, cutout: '60%' }
+      options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => ' ' + c.label + ': ' + c.parsed + ' peti' } } }, cutout: '60%' }
     });
-  } else empty('sizeChart', 'No crates sold in this period');
+  } else empty('sizeChart', 'No peti sold in this period');
 
   if (hasData(D.sizeCrates) || hasData(D.sizePurchased)) {
     new Chart(document.getElementById('pvsChart'), {
@@ -540,7 +540,7 @@ $pctCash = pct($s['CashSales'], $s['Total']);
         { label: 'Purchased', data: D.sizePurchased, backgroundColor: 'rgba(37,99,235,0.75)', borderRadius: 4 },
         { label: 'Sold', data: D.sizeCrates, backgroundColor: 'rgba(34,211,238,0.75)', borderRadius: 4 }
       ]},
-      options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'Crates' } } } }
+      options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'Peti' } } } }
     });
   } else empty('pvsChart', 'No purchases or sales in this period');
 

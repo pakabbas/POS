@@ -87,12 +87,13 @@ function getProducts($conn) {
     $result = $stmt->get_result();
     
     $products = [];
-    // Crates in stock (null when inventory tables are not set up yet); display only, never blocks a sale
+    // Peti in stock (null when inventory tables are not set up yet); display only, never blocks a sale
     $stock = function_exists('stock_map') ? stock_map($conn) : [];
     if ($result && $result->num_rows > 0) {
         while ($row = $result->fetch_assoc()) {
             $pid = (int)$row['ProductID'];
             $row['Stock'] = array_key_exists($pid, $stock) ? $stock[$pid] : null;
+            $row['StockText'] = ($row['Stock'] !== null && function_exists('peti_fmt')) ? peti_fmt($row['Stock']) : null;
             $products[] = $row;
         }
     }
@@ -207,7 +208,7 @@ function createInvoice($conn, $data) {
         if (empty($data['items']) || !is_array($data['items'])) {
             throw new Exception("No items supplied");
         }
-        // Quantities are whole crates typed or clicked at the till: 1..9999 each.
+        // Quantities are whole peti typed or clicked at the till: 1..9999 each.
         foreach ($data['items'] as $item) {
             $q = $item['quantity'] ?? null;
             $pid = $item['ProductID'] ?? null;
@@ -215,7 +216,7 @@ function createInvoice($conn, $data) {
                 throw new Exception("Invalid product in cart");
             }
             if (!is_numeric($q) || (float)$q != floor((float)$q) || (int)$q < 1 || (int)$q > 9999) {
-                throw new Exception("Quantity must be a whole number of crates between 1 and 9999");
+                throw new Exception("Quantity must be a whole number of peti between 1 and 9999");
             }
         }
 

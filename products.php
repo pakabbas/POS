@@ -103,7 +103,7 @@ $rows = $conn->query("
             </select>
           </div>
           <div class="mb-3">
-            <label class="form-label">Price</label>
+            <label class="form-label">Price (Rs. per peti)</label>
             <input type="number" name="price" min="0" step="0.01" class="form-control" value="<?= htmlspecialchars($editData['Price'] ?? '') ?>" required>
           </div>
           <div class="mb-3">
@@ -137,7 +137,7 @@ $rows = $conn->query("
                 <th>ID</th>
                 <th>Name</th>
                 <th>Category</th>
-                <th>Price</th>
+                <th>Price / peti</th>
                 <th>Order</th>
                 <th>Status</th>
                 <th class="text-end">Actions</th>

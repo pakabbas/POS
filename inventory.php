@@ -34,8 +34,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pid = (int)($_POST['product_id'] ?? 0);
     try {
         if ($which === 'opening' && $role === 'Admin') {
-            $opening = round((float)($_POST['opening_stock'] ?? 0), 2);
-            $reorder = round((float)($_POST['reorder_level'] ?? 0), 2);
+            // Count is entered as whole peti + loose crates; stored in peti.
+            $opening = round((float)($_POST['opening_stock'] ?? 0) + (float)($_POST['opening_crates'] ?? 0) / CRATES_PER_PETI, 4);
+            $reorder = round((float)($_POST['reorder_level'] ?? 0), 4);
             $countDate = (string)($_POST['count_date'] ?? $today);
             $keepCount = isset($_POST['reorder_only']);
             if ($pid <= 0) {
@@ -46,13 +47,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $alert = ['type' => 'danger', 'msg' => 'Invalid count date.'];
             } else {
                 if ($keepCount) {
-                    $stmt = $conn->prepare("INSERT INTO ProductInventory (ProductID, UnitOfMeasure, ReorderLevel) VALUES (?, 'Crate', ?)
+                    $stmt = $conn->prepare("INSERT INTO ProductInventory (ProductID, UnitOfMeasure, ReorderLevel) VALUES (?, 'Peti', ?)
                                             ON DUPLICATE KEY UPDATE ReorderLevel = VALUES(ReorderLevel)");
                     $stmt->bind_param('id', $pid, $reorder);
                 } else {
                     // The count is the stock at that moment; only movements after it are added/subtracted.
                     $countAt = $countDate === $today ? date('Y-m-d H:i:s') : $countDate . ' 23:59:59';
-                    $stmt = $conn->prepare("INSERT INTO ProductInventory (ProductID, UnitOfMeasure, OpeningStock, OpeningStockDate, ReorderLevel) VALUES (?, 'Crate', ?, ?, ?)
+                    $stmt = $conn->prepare("INSERT INTO ProductInventory (ProductID, UnitOfMeasure, OpeningStock, OpeningStockDate, ReorderLevel) VALUES (?, 'Peti', ?, ?, ?)
                                             ON DUPLICATE KEY UPDATE OpeningStock = VALUES(OpeningStock), OpeningStockDate = VALUES(OpeningStockDate), ReorderLevel = VALUES(ReorderLevel)");
                     $stmt->bind_param('idsd', $pid, $opening, $countAt, $reorder);
                 }
@@ -62,14 +63,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($which === 'adjust') {
             $types = stock_adjustment_types();
             $label = (string)($_POST['adj_type'] ?? '');
-            $qty = round((float)($_POST['qty'] ?? 0), 2);
+            $crates = round((float)($_POST['qty'] ?? 0), 2); // adjustments are entered in crates
             $reason = mb_substr(trim((string)($_POST['reason'] ?? '')), 0, 500);
             $date = (string)($_POST['date'] ?? $today);
             if ($pid <= 0) {
                 $alert = ['type' => 'danger', 'msg' => 'Select a product.'];
             } elseif (!isset($types[$label])) {
                 $alert = ['type' => 'danger', 'msg' => 'Select an adjustment type.'];
-            } elseif ($qty == 0) {
+            } elseif ($crates == 0) {
                 $alert = ['type' => 'danger', 'msg' => 'Quantity cannot be zero.'];
             } elseif ($reason === '') {
                 $alert = ['type' => 'danger', 'msg' => 'Please enter a reason.'];
@@ -77,11 +78,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $alert = ['type' => 'danger', 'msg' => 'Invalid date.'];
             } else {
                 [$mType, $sign] = $types[$label];
-                if ($sign !== 0) $qty = $sign * abs($qty);
+                if ($sign !== 0) $crates = $sign * abs($crates);
+                $qty = round($crates / CRATES_PER_PETI, 4); // stock effect in peti
                 $when = $date === $today ? date('Y-m-d H:i:s') : $date . ' ' . date('H:i:s');
                 $note = $label . ': ' . $reason;
-                $stmt = $conn->prepare("INSERT INTO StockMovements (ProductID, MovementType, Quantity, ReferenceType, MovementDate, PerformedBy, Notes) VALUES (?, ?, ?, 'Manual', ?, ?, ?)");
-                $stmt->bind_param('isdsis', $pid, $mType, $qty, $when, $userId, $note);
+                $stmt = $conn->prepare("INSERT INTO StockMovements (ProductID, MovementType, Quantity, Crates, ReferenceType, MovementDate, PerformedBy, Notes) VALUES (?, ?, ?, ?, 'Manual', ?, ?, ?)");
+                $stmt->bind_param('isddsis', $pid, $mType, $qty, $crates, $when, $userId, $note);
                 $stmt->execute();
                 redirect_to($selfUrl . ($lowOnly ? '&' : '?') . 'msg=adjusted');
             }
@@ -104,7 +106,7 @@ foreach ($levels as $r) {
     if ($r['Stock'] <= $r['ReorderLevel']) $lowCount++;
 }
 $shown = $lowOnly ? array_filter($levels, fn($r) => $r['Stock'] <= $r['ReorderLevel']) : $levels;
-$totalCrates = array_sum(array_column($levels, 'Stock'));
+$totalPeti = array_sum(array_column($levels, 'Stock'));
 
 $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovements sm
                        JOIN Products p ON p.ProductID = sm.ProductID LEFT JOIN Users u ON u.UserID = sm.PerformedBy
@@ -127,7 +129,7 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
 
 <div class="card shadow-sm mb-4">
   <div class="card-header bg-white d-flex flex-wrap gap-2 align-items-center">
-    <span class="fw-semibold me-auto">Stock levels <span class="text-muted small">(crates · total in stock <?= qty_fmt($totalCrates) ?>)</span></span>
+    <span class="fw-semibold me-auto">Stock levels <span class="text-muted small">(in peti · 1 peti = 12 crates · total in stock <?= peti_fmt($totalPeti) ?>)</span></span>
     <a class="btn btn-sm <?= $lowOnly ? 'btn-outline-secondary' : 'btn-secondary' ?>" href="inventory.php">All</a>
     <a class="btn btn-sm <?= $lowOnly ? 'btn-danger' : 'btn-outline-danger' ?>" href="inventory.php?low=1">Low stock (<?= $lowCount ?>)</a>
   </div>
@@ -159,18 +161,19 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
                   <?= $r['OpeningStockDate'] ? 'Counted from ' . date('d-M-Y g:i A', strtotime($r['OpeningStockDate'])) : 'No opening count yet (all history counted)' ?>
                 </div>
               </td>
-              <td class="text-end"><?= qty_fmt($r['OpeningStock']) ?></td>
-              <td class="text-end text-success"><?= qty_fmt($r['Purchased']) ?></td>
-              <td class="text-end text-primary"><?= qty_fmt($r['Sold']) ?></td>
-              <td class="text-end"><?= qty_fmt($r['Adjusted']) ?></td>
-              <td class="text-end fw-bold fs-5 <?= $low ? 'text-danger' : '' ?>"><?= qty_fmt($r['Stock']) ?></td>
-              <td class="text-end"><?= qty_fmt($r['ReorderLevel']) ?> <?php if ($low): ?><span class="badge bg-danger">Low</span><?php endif; ?></td>
+              <td class="text-end text-nowrap"><?= peti_fmt($r['OpeningStock'], true) ?></td>
+              <td class="text-end text-nowrap text-success"><?= peti_fmt($r['Purchased'], true) ?></td>
+              <td class="text-end text-nowrap text-primary"><?= peti_fmt($r['Sold'], true) ?></td>
+              <td class="text-end text-nowrap"><?= peti_fmt($r['Adjusted'], true) ?></td>
+              <td class="text-end text-nowrap fw-bold fs-5 <?= $low ? 'text-danger' : '' ?>"><?= peti_fmt($r['Stock'], true) ?></td>
+              <td class="text-end text-nowrap"><?= peti_fmt($r['ReorderLevel']) ?> <?php if ($low): ?><span class="badge bg-danger">Low</span><?php endif; ?></td>
               <td class="text-end text-nowrap">
                 <?php if ($role === 'Admin'): ?>
                   <button type="button" class="btn btn-sm btn-outline-primary" data-opening
                           data-product-id="<?= (int)$r['ProductID'] ?>"
                           data-product-name="<?= htmlspecialchars($r['ProductName']) ?>"
                           data-stock="<?= htmlspecialchars((string)$r['Stock']) ?>"
+                          data-stock-text="<?= htmlspecialchars(peti_fmt($r['Stock'])) ?>"
                           data-reorder="<?= htmlspecialchars((string)$r['ReorderLevel']) ?>">Set count</button>
                 <?php endif; ?>
                 <button type="button" class="btn btn-sm btn-outline-warning" data-adjust data-product-id="<?= (int)$r['ProductID'] ?>">Adjust</button>
@@ -182,24 +185,25 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
     </div>
   </div>
 </div>
-<p class="small text-muted">In stock = opening count + purchases − crates sold on invoices ± adjustments, counting only entries after the product's count time. Use <strong>Set count</strong> after a physical count to reset a product's stock to what is actually in the shop.</p>
+<p class="small text-muted">In stock = opening count + purchases − peti sold on invoices ± adjustments (adjustments are entered in crates; 12 crates = 1 peti), counting only entries after the product's count time. Use <strong>Set count</strong> after a physical count to reset a product's stock to what is actually in the shop.</p>
 
 <div class="card shadow-sm">
   <div class="card-header bg-white fw-semibold">Recent stock adjustments</div>
   <div class="card-body p-0">
     <div class="table-responsive">
       <table class="table table-sm table-striped mb-0 align-middle">
-        <thead class="table-light"><tr><th>Date</th><th>Product</th><th>Type</th><th class="text-end">Crates</th><th>Reason</th><th>By</th><?php if ($role === 'Admin'): ?><th></th><?php endif; ?></tr></thead>
+        <thead class="table-light"><tr><th>Date</th><th>Product</th><th>Type</th><th class="text-end">Crates</th><th class="text-end">= Peti</th><th>Reason</th><th>By</th><?php if ($role === 'Admin'): ?><th></th><?php endif; ?></tr></thead>
         <tbody>
           <?php if (!$moves): ?>
-            <tr><td colspan="7" class="text-center text-muted py-3">No adjustments yet.</td></tr>
+            <tr><td colspan="8" class="text-center text-muted py-3">No adjustments yet.</td></tr>
           <?php endif; ?>
-          <?php foreach ($moves as $m): ?>
+          <?php foreach ($moves as $m): $mc = movement_crates($m); ?>
             <tr>
               <td class="text-nowrap"><?= date('d-M-Y g:i A', strtotime($m['MovementDate'])) ?></td>
               <td><?= htmlspecialchars($m['ProductName']) ?></td>
               <td><?= htmlspecialchars($m['MovementType']) ?></td>
-              <td class="text-end <?= $m['Quantity'] < 0 ? 'text-danger' : 'text-success' ?>"><?= ($m['Quantity'] > 0 ? '+' : '') . qty_fmt($m['Quantity']) ?></td>
+              <td class="text-end <?= $mc < 0 ? 'text-danger' : 'text-success' ?>"><?= crates_fmt($mc, true) ?></td>
+              <td class="text-end small text-muted"><?= ($m['Quantity'] > 0 ? '+' : '') . rtrim(rtrim(number_format((float)$m['Quantity'], 4), '0'), '.') ?></td>
               <td class="small"><?= htmlspecialchars($m['Notes'] ?? '') ?></td>
               <td class="small"><?= htmlspecialchars($m['UserName'] ?? '') ?></td>
               <?php if ($role === 'Admin'): ?>
@@ -233,7 +237,7 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
           <select name="product_id" class="form-select" id="adjProduct" required>
             <option value="">— Product —</option>
             <?php foreach ($levels as $r): ?>
-              <option value="<?= (int)$r['ProductID'] ?>"><?= htmlspecialchars($r['ProductName']) ?> (in stock <?= qty_fmt($r['Stock']) ?>)</option>
+              <option value="<?= (int)$r['ProductID'] ?>"><?= htmlspecialchars($r['ProductName']) ?> (in stock <?= peti_fmt($r['Stock']) ?>)</option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -247,8 +251,8 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
             </select>
           </div>
           <div class="col-5">
-            <label class="form-label">Crates</label>
-            <input type="number" name="qty" step="0.01" class="form-control" required>
+            <label class="form-label">Crates <span class="text-muted small">(not peti)</span></label>
+            <input type="number" name="qty" step="1" class="form-control" inputmode="numeric" required id="adjQty">
           </div>
         </div>
         <div class="form-text mb-3" id="adjHint"></div>
@@ -275,11 +279,15 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
       <input type="hidden" name="product_id" id="opProduct">
       <div class="modal-header"><h5 class="modal-title">Set stock count — <span id="opName"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
       <div class="modal-body">
-        <div class="mb-2 small text-muted">Current computed stock: <strong id="opCurrent"></strong> crates</div>
+        <div class="mb-2 small text-muted">Current computed stock: <strong id="opCurrent"></strong></div>
         <div class="row g-2 mb-3">
-          <div class="col">
-            <label class="form-label">Crates counted</label>
-            <input type="number" name="opening_stock" min="0" step="0.01" class="form-control" id="opStock">
+          <div class="col-4">
+            <label class="form-label">Peti counted</label>
+            <input type="number" name="opening_stock" min="0" step="1" class="form-control" id="opStock">
+          </div>
+          <div class="col-3">
+            <label class="form-label">+ crates</label>
+            <input type="number" name="opening_crates" min="0" max="11" step="1" class="form-control" id="opCrates">
           </div>
           <div class="col">
             <label class="form-label">Counted on</label>
@@ -288,8 +296,8 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
         </div>
         <div class="form-text mb-3">Today = counted right now. A past date = counted at the end of that day; sales, purchases and adjustments after it are applied on top.</div>
         <div class="mb-3">
-          <label class="form-label">Low-stock alert at (crates)</label>
-          <input type="number" name="reorder_level" min="0" step="0.01" class="form-control" id="opReorder">
+          <label class="form-label">Low-stock alert at (peti)</label>
+          <input type="number" name="reorder_level" min="0" step="0.5" class="form-control" id="opReorder">
         </div>
         <div class="form-check">
           <input class="form-check-input" type="checkbox" name="reorder_only" id="opReorderOnly">
@@ -310,9 +318,11 @@ document.addEventListener('click', function (e) {
   if (op) {
     document.getElementById('opProduct').value = op.dataset.productId;
     document.getElementById('opName').textContent = op.dataset.productName;
-    document.getElementById('opCurrent').textContent = op.dataset.stock;
-    document.getElementById('opStock').value = Math.max(parseFloat(op.dataset.stock) || 0, 0);
-    document.getElementById('opReorder').value = op.dataset.reorder;
+    document.getElementById('opCurrent').textContent = op.dataset.stockText;
+    const crates = Math.max(Math.round((parseFloat(op.dataset.stock) || 0) * 12), 0);
+    document.getElementById('opStock').value = Math.floor(crates / 12);
+    document.getElementById('opCrates').value = crates % 12;
+    document.getElementById('opReorder').value = +(parseFloat(op.dataset.reorder) || 0).toFixed(2);
     document.getElementById('opReorderOnly').checked = false;
     bootstrap.Modal.getOrCreateInstance(document.getElementById('openingModal')).show();
   }
@@ -326,9 +336,11 @@ document.addEventListener('click', function (e) {
   const t = document.getElementById('adjType'), h = document.getElementById('adjHint');
   function hint() {
     const s = t.selectedOptions[0].dataset.sign;
-    h.textContent = s === '-1' ? 'These crates will be removed from stock.' : 'Enter a positive number to add crates, negative to remove.';
+    const q = Math.abs(parseFloat(document.getElementById('adjQty').value) || 0);
+    const peti = q ? ' (= ' + +(q / 12).toFixed(4) + ' peti)' : '';
+    h.textContent = (s === '-1' ? 'These crates will be removed from stock' : 'Crates: positive adds to stock, negative removes') + peti + '. 12 crates = 1 peti.';
   }
-  t.addEventListener('change', hint); hint();
+  t.addEventListener('change', hint); document.getElementById('adjQty').addEventListener('input', hint); hint();
 })();
 </script>
 </body>

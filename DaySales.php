@@ -93,7 +93,7 @@ $grandTotal = $totals->get_result()->fetch_assoc()['grand_total'] ?? 0;
           <tr>
             <th>Product</th>
             <th>Category</th>
-            <th class="text-end">Qty</th>
+            <th class="text-end">Peti</th>
             <th class="text-end">Total</th>
           </tr>
         </thead>
@@ -105,7 +105,7 @@ $grandTotal = $totals->get_result()->fetch_assoc()['grand_total'] ?? 0;
               <tr>
                 <td><?= htmlspecialchars($r['ProductName']) ?></td>
                 <td><?= htmlspecialchars($r['CategoryName'] ?? 'Uncategorized') ?></td>
-                <td class="text-end"><?= (int)$r['qty'] ?></td>
+                <td class="text-end"><?= rtrim(rtrim(number_format((float)$r['qty'], 2), '0'), '.') ?></td>
                 <td class="text-end">PKR <?= number_format($r['total'], 0) ?></td>
               </tr>
             <?php endforeach; ?>

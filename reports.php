@@ -80,7 +80,7 @@ if ($r === 'invoices') {
             ORDER BY i.InvoiceDate DESC, i.InvoiceID DESC";
     if ($csv) {
         $rows = q_all($conn, $sql, $types, $params);
-        send_csv("invoices_{$start}_to_{$end}.csv", ['Invoice', 'Date', 'Customer', 'Type', 'Crates', 'Subtotal', 'Discount', 'Total'],
+        send_csv("invoices_{$start}_to_{$end}.csv", ['Invoice', 'Date', 'Customer', 'Type', 'Peti', 'Subtotal', 'Discount', 'Total'],
             array_map(fn($x) => [$x['InvoiceNumber'], $x['InvoiceDate'], $x['Customer'], $x['PaymentType'], $x['Crates'], $x['Subtotal'], $x['Discount'], $x['TotalAmount']], $rows));
     }
     $invoices = q_all($conn, $sql . " LIMIT ? OFFSET ?", $types . 'ii', array_merge($params, [$limit, $offset]));
@@ -112,7 +112,7 @@ if ($r === 'sales') {
             'Purchased' => $purch[$pid]['Crates'] ?? 0.0];
     }
     if ($csv) {
-        send_csv('sales_by_size_' . $fileSuffix, ['Size', 'Crates sold', 'Sales (Rs)', 'Invoices', 'Avg price/crate', 'Avg cost/crate', 'Margin/crate', 'Est. profit', 'Crates purchased'],
+        send_csv('sales_by_size_' . $fileSuffix, ['Size', 'Peti sold', 'Sales (Rs)', 'Invoices', 'Avg price/peti', 'Avg cost/peti', 'Margin/peti', 'Est. profit', 'Peti purchased'],
             array_map(fn($x) => [$x['Size'], $x['Crates'], round($x['Sales'], 2), $x['Invoices'], $x['AvgPrice'] !== null ? round($x['AvgPrice'], 2) : '', $x['Cost'] ?? '', $x['Margin'] !== null ? round($x['Margin'], 2) : '', $x['Profit'] !== null ? round($x['Profit'], 2) : '', $x['Purchased']], $rows));
     }
 }
@@ -139,7 +139,7 @@ if ($r === 'customers') {
     }
     unset($x);
     if ($csv) {
-        send_csv('customer_sales_' . $fileSuffix, ['Customer', 'Phone', 'Invoices', 'Crates', 'Sales', 'Cash sales', 'Credit sales', 'Received in period', 'Current balance', 'Last sale'],
+        send_csv('customer_sales_' . $fileSuffix, ['Customer', 'Phone', 'Invoices', 'Peti', 'Sales', 'Cash sales', 'Credit sales', 'Received in period', 'Current balance', 'Last sale'],
             array_map(fn($x) => [$x['Name'], $x['Phone'] ?? '', $x['Invoices'], $x['Crates'], $x['Sales'], $x['Cash'], $x['Credit'], $x['Received'] ?? '', $x['Balance'] ?? '', $x['LastSale']], $rows));
     }
 }
@@ -175,7 +175,7 @@ if ($r === 'purchases') {
     }
     unset($x);
     if ($csv) {
-        send_csv('purchases_by_vendor_' . $fileSuffix, ['Vendor', 'Purchases', 'Crates', 'Amount', 'Credit', 'Cash', 'Paid in period', 'Current payable'],
+        send_csv('purchases_by_vendor_' . $fileSuffix, ['Vendor', 'Purchases', 'Peti', 'Amount', 'Credit', 'Cash', 'Paid in period', 'Current payable'],
             array_map(fn($x) => [$x['VendorName'], $x['Purchases'], $x['Crates'], $x['Amount'], $x['Credit'], $x['Cash'], $x['Paid'], $x['Payable']], $rows));
     }
 }
@@ -194,10 +194,10 @@ if ($r === 'stock') {
         $c = $close[$pid] ?? 0;
         $rows[] = ['Size' => $p['ProductName'], 'Opening' => $o, 'Purchased' => $f['Purchased'], 'Sold' => $f['Sold'],
                    'Adjusted' => $f['Adjusted'], 'Breakage' => $f['Breakage'],
-                   'Recount' => round($c - ($o + $f['Purchased'] + $f['Adjusted'] - $f['Sold']), 2), 'Closing' => $c];
+                   'Recount' => round($c - ($o + $f['Purchased'] + $f['Adjusted'] - $f['Sold']), 4) + 0.0, 'Closing' => $c];
     }
     if ($csv) {
-        send_csv('stock_movement_' . $fileSuffix, ['Size', 'Opening crates', 'Purchased', 'Sold', 'Adjustments (net)', 'of which breakage/expired', 'Stock count reset', 'Closing crates'],
+        send_csv('stock_movement_' . $fileSuffix, ['Size', 'Opening peti', 'Purchased', 'Sold', 'Adjustments (net peti)', 'Breakage/expired (crates)', 'Stock count reset (peti)', 'Closing peti'],
             array_map(fn($x) => array_values($x), $rows));
     }
 }
@@ -276,7 +276,7 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
     <div class="table-responsive">
       <table class="table table-striped mb-0 align-middle">
         <thead class="table-light">
-          <tr><th>Invoice #</th><th>Date/Time</th><th>Customer</th><th>Type</th><th class="text-end">Crates</th><th class="text-end">Discount</th><th class="text-end">Total (Rs.)</th><th class="text-end no-print">Actions</th></tr>
+          <tr><th>Invoice #</th><th>Date/Time</th><th>Customer</th><th>Type</th><th class="text-end">Peti</th><th class="text-end">Discount</th><th class="text-end">Total (Rs.)</th><th class="text-end no-print">Actions</th></tr>
         </thead>
         <tbody>
           <?php if (!$invoices): ?>
@@ -317,7 +317,7 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
 <div class="card shadow-sm mb-3"><div class="card-body">
   <h5 class="fw-bold mb-2">Sales by egg size <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
   <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-    <thead class="table-light"><tr><th>Size</th><th class="text-end">Crates sold</th><th class="text-end">Sales (Rs.)</th><th class="text-end">Invoices</th><th class="text-end">Avg price / crate</th><th class="text-end">Avg cost / crate</th><th class="text-end">Margin / crate</th><th class="text-end">Est. profit</th><th class="text-end">Crates purchased</th></tr></thead>
+    <thead class="table-light"><tr><th>Size</th><th class="text-end">Peti sold</th><th class="text-end">Sales (Rs.)</th><th class="text-end">Invoices</th><th class="text-end">Avg price / peti</th><th class="text-end">Avg cost / peti</th><th class="text-end">Margin / peti</th><th class="text-end">Est. profit</th><th class="text-end">Peti purchased</th></tr></thead>
     <tbody>
       <?php foreach ($rows as $x): ?>
         <tr>
@@ -336,12 +336,12 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
     </tbody>
     <tfoot class="table-light fw-bold"><tr><td>Total</td><td class="text-end"><?= $q($tc) ?></td><td class="text-end"><?= $n0($ts) ?></td><td></td><td class="text-end"><?= $tc > 0 ? $n0($ts / $tc) : '—' ?></td><td></td><td></td><td class="text-end"><?= $n0($tp) ?></td><td class="text-end"><?= $q($tpur) ?></td></tr></tfoot>
   </table></div>
-  <div class="small text-muted mt-1">Sales here are item totals before invoice discounts. Cost = weighted average purchase cost per crate; profit is an estimate.</div>
+  <div class="small text-muted mt-1">Sales here are item totals before invoice discounts. Cost = weighted average purchase cost per peti; profit is an estimate.</div>
 </div></div>
 <div class="card shadow-sm"><div class="card-body">
-  <h5 class="fw-bold mb-2">Day by day (crates)</h5>
+  <h5 class="fw-bold mb-2">Day by day (peti)</h5>
   <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-    <thead class="table-light"><tr><th>Date</th><?php foreach ($products as $p): ?><th class="text-end"><?= htmlspecialchars($p['name']) ?></th><?php endforeach; ?><th class="text-end">Total crates</th><th class="text-end">Sales (Rs.)</th></tr></thead>
+    <thead class="table-light"><tr><th>Date</th><?php foreach ($products as $p): ?><th class="text-end"><?= htmlspecialchars($p['name']) ?></th><?php endforeach; ?><th class="text-end">Total peti</th><th class="text-end">Sales (Rs.)</th></tr></thead>
     <tbody>
       <?php foreach ($daily as $d => $x): ?>
         <tr>
@@ -360,7 +360,7 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
 <div class="card shadow-sm"><div class="card-body">
   <h5 class="fw-bold mb-2">Customer-wise sales <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
   <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-    <thead class="table-light"><tr><th>Customer</th><th class="text-end">Invoices</th><th class="text-end">Crates</th><th class="text-end">Sales</th><th class="text-end">Cash</th><th class="text-end">Credit</th><th class="text-end">Received</th><th class="text-end">Balance now</th><th>Last sale</th></tr></thead>
+    <thead class="table-light"><tr><th>Customer</th><th class="text-end">Invoices</th><th class="text-end">Peti</th><th class="text-end">Sales</th><th class="text-end">Cash</th><th class="text-end">Credit</th><th class="text-end">Received</th><th class="text-end">Balance now</th><th>Last sale</th></tr></thead>
     <tbody>
       <?php foreach ($rows as $x): ?>
         <tr>
@@ -421,7 +421,7 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
 <div class="card shadow-sm mb-3"><div class="card-body">
   <h5 class="fw-bold mb-2">Purchases by vendor <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
   <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-    <thead class="table-light"><tr><th>Vendor</th><th class="text-end">Purchases</th><th class="text-end">Crates</th><th class="text-end">Amount</th><th class="text-end">On credit</th><th class="text-end">Cash</th><th class="text-end">Paid in period</th><th class="text-end">Payable now</th></tr></thead>
+    <thead class="table-light"><tr><th>Vendor</th><th class="text-end">Purchases</th><th class="text-end">Peti</th><th class="text-end">Amount</th><th class="text-end">On credit</th><th class="text-end">Cash</th><th class="text-end">Paid in period</th><th class="text-end">Payable now</th></tr></thead>
     <tbody>
       <?php foreach ($rows as $x): ?>
         <tr>
@@ -445,7 +445,7 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
 <div class="card shadow-sm"><div class="card-body">
   <h5 class="fw-bold mb-2">Purchased by egg size</h5>
   <table class="table table-sm table-striped mb-0">
-    <thead class="table-light"><tr><th>Size</th><th class="text-end">Crates</th><th class="text-end">Amount</th><th class="text-end">Avg cost / crate</th></tr></thead>
+    <thead class="table-light"><tr><th>Size</th><th class="text-end">Peti</th><th class="text-end">Amount</th><th class="text-end">Avg cost / peti</th></tr></thead>
     <tbody>
       <?php foreach ($bySize as $x): ?>
         <tr><td><?= htmlspecialchars($x['ProductName']) ?></td><td class="text-end"><?= $q($x['Crates']) ?></td><td class="text-end"><?= $n0($x['Amount']) ?></td><td class="text-end"><?= (float)$x['Crates'] > 0 ? $n0($x['Amount'] / $x['Crates']) : '—' ?></td></tr>
@@ -457,20 +457,20 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
 
 <?php elseif ($r === 'stock'): ?>
 <div class="card shadow-sm"><div class="card-body">
-  <h5 class="fw-bold mb-2">Stock movement (crates) <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
+  <h5 class="fw-bold mb-2">Stock movement (peti · breakage in crates) <span class="text-muted small fw-normal">· <?= htmlspecialchars($P['label']) ?></span></h5>
   <div class="table-responsive"><table class="table table-sm table-striped align-middle mb-0">
-    <thead class="table-light"><tr><th>Size</th><th class="text-end">Opening</th><th class="text-end">+ Purchased</th><th class="text-end">− Sold</th><th class="text-end">± Adjustments</th><th class="text-end">of which breakage</th><th class="text-end">Count reset</th><th class="text-end">Closing</th></tr></thead>
+    <thead class="table-light"><tr><th>Size</th><th class="text-end">Opening</th><th class="text-end">+ Purchased</th><th class="text-end">− Sold</th><th class="text-end">± Adjustments</th><th class="text-end">breakage (crates)</th><th class="text-end">Count reset</th><th class="text-end">Closing</th></tr></thead>
     <tbody>
       <?php foreach ($rows as $x): ?>
         <tr>
           <td><?= htmlspecialchars($x['Size']) ?></td>
-          <td class="text-end"><?= $q($x['Opening']) ?></td>
-          <td class="text-end text-success"><?= $q($x['Purchased']) ?></td>
-          <td class="text-end text-primary"><?= $q($x['Sold']) ?></td>
-          <td class="text-end"><?= $q($x['Adjusted']) ?></td>
-          <td class="text-end text-danger"><?= $x['Breakage'] > 0 ? $q($x['Breakage']) : '' ?></td>
-          <td class="text-end"><?= abs($x['Recount']) > 0.004 ? (($x['Recount'] > 0 ? '+' : '') . $q($x['Recount'])) : '' ?></td>
-          <td class="text-end fw-bold <?= $x['Closing'] < 0 ? 'text-danger' : '' ?>"><?= $q($x['Closing']) ?></td>
+          <td class="text-end"><?= peti_fmt($x['Opening'], true) ?></td>
+          <td class="text-end text-success"><?= peti_fmt($x['Purchased'], true) ?></td>
+          <td class="text-end text-primary"><?= peti_fmt($x['Sold'], true) ?></td>
+          <td class="text-end"><?= peti_fmt($x['Adjusted'], true) ?></td>
+          <td class="text-end text-danger"><?= $x['Breakage'] > 0 ? crates_fmt($x['Breakage']) : '' ?></td>
+          <td class="text-end"><?= abs($x['Recount']) > 0.04 ? (($x['Recount'] > 0 ? '+' : '') . peti_fmt($x['Recount'], true)) : '' ?></td>
+          <td class="text-end fw-bold <?= $x['Closing'] < 0 ? 'text-danger' : '' ?>"><?= peti_fmt($x['Closing'], true) ?></td>
         </tr>
       <?php endforeach; ?>
       <?php if (!$rows): ?><tr><td colspan="8" class="text-center text-muted py-3">No products</td></tr><?php endif; ?>

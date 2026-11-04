@@ -45,12 +45,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $err = null;
         foreach ((array)$pids as $i => $pid) {
             $pid = (int)$pid;
-            $qty = round((float)($qtys[$i] ?? 0), 2);
+            $qty = round((float)($qtys[$i] ?? 0), 4); // peti
             $cost = round((float)($costs[$i] ?? 0), 2);
             if ($pid <= 0 && $qty == 0) continue;
             if ($pid <= 0) { $err = 'Select a product on every line.'; break; }
-            if ($qty <= 0) { $err = 'Crates must be greater than zero on every line.'; break; }
-            if ($cost < 0) { $err = 'Cost per crate cannot be negative.'; break; }
+            if ($qty <= 0) { $err = 'Peti must be greater than zero on every line.'; break; }
+            if ($cost < 0) { $err = 'Cost per peti cannot be negative.'; break; }
             $lines[] = ['pid' => $pid, 'qty' => $qty, 'cost' => $cost, 'total' => round($qty * $cost, 2)];
         }
         $total = round(array_sum(array_column($lines, 'total')), 2);
@@ -88,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt->execute();
 
                 $stmtItem = $conn->prepare("INSERT INTO PurchaseOrderItems (PurchaseOrderID, ProductID, QuantityOrdered, UnitPrice, TotalPrice, QuantityReceived) VALUES (?, ?, ?, ?, ?, ?)");
-                $stmtInv = $conn->prepare("INSERT INTO ProductInventory (ProductID, UnitOfMeasure, CostPrice, LastRestockedDate, LastRestockedBy) VALUES (?, 'Crate', ?, ?, ?)
+                $stmtInv = $conn->prepare("INSERT INTO ProductInventory (ProductID, UnitOfMeasure, CostPrice, LastRestockedDate, LastRestockedBy) VALUES (?, 'Peti', ?, ?, ?)
                                            ON DUPLICATE KEY UPDATE CostPrice = VALUES(CostPrice), LastRestockedDate = VALUES(LastRestockedDate), LastRestockedBy = VALUES(LastRestockedBy)");
                 foreach ($lines as $l) {
                     $stmtItem->bind_param('iidddd', $poId, $l['pid'], $l['qty'], $l['cost'], $l['total'], $l['qty']);
@@ -193,7 +193,7 @@ $fVendor = (int)($_GET['vendor_id'] ?? 0);
       <button class="btn btn-outline-dark btn-sm" onclick="window.print()">Print</button>
       <a class="btn btn-outline-secondary btn-sm" href="vendor_ledger.php?vendor_id=<?= (int)$po['VendorID'] ?>">Vendor Ledger</a>
       <?php if ($role === 'Admin'): ?>
-        <form method="post" action="purchases.php" onsubmit="return confirm('Delete this purchase? Its crates will be removed from stock and any amount paid with it will be removed from the vendor ledger.')">
+        <form method="post" action="purchases.php" onsubmit="return confirm('Delete this purchase? Its peti will be removed from stock and any amount paid with it will be removed from the vendor ledger.')">
           <input type="hidden" name="form" value="delete_purchase">
           <input type="hidden" name="purchase_id" value="<?= (int)$po['PurchaseOrderID'] ?>">
           <button class="btn btn-outline-danger btn-sm" type="submit">Delete</button>
@@ -204,7 +204,7 @@ $fVendor = (int)($_GET['vendor_id'] ?? 0);
   </div>
   <div class="card-body p-0">
     <table class="table table-sm mb-0">
-      <thead class="table-light"><tr><th>Product</th><th class="text-end">Crates</th><th class="text-end">Cost / crate</th><th class="text-end">Total</th></tr></thead>
+      <thead class="table-light"><tr><th>Product</th><th class="text-end">Peti</th><th class="text-end">Cost / peti</th><th class="text-end">Total</th></tr></thead>
       <tbody>
         <?php foreach ($items as $it): ?>
           <tr>
@@ -279,7 +279,7 @@ $fVendor = (int)($_GET['vendor_id'] ?? 0);
       </div>
 
       <table class="table table-sm align-middle" id="lineTable">
-        <thead class="table-light"><tr><th style="width:40%">Product</th><th>Crates</th><th>Cost / crate (Rs.)</th><th class="text-end">Line total</th><th></th></tr></thead>
+        <thead class="table-light"><tr><th style="width:40%">Product</th><th>Peti</th><th>Cost / peti (Rs.)</th><th class="text-end">Line total</th><th></th></tr></thead>
         <tbody>
           <?php foreach ($oldLines as $l): ?>
           <tr class="line">
@@ -440,7 +440,7 @@ $sumC = array_sum(array_column($list, 'Crates'));
     <div class="table-responsive">
       <table class="table table-striped table-sm mb-0 align-middle">
         <thead class="table-light">
-          <tr><th>Date</th><th>No.</th><th>Vendor</th><th>Items (crates)</th><th class="text-end">Total</th><th>Type</th><th class="text-end">Paid now</th><th></th></tr>
+          <tr><th>Date</th><th>No.</th><th>Vendor</th><th>Items (peti)</th><th class="text-end">Total</th><th>Type</th><th class="text-end">Paid now</th><th></th></tr>
         </thead>
         <tbody>
           <?php if (!$list): ?>
@@ -460,7 +460,7 @@ $sumC = array_sum(array_column($list, 'Crates'));
           <?php endforeach; ?>
         </tbody>
         <tfoot class="table-light fw-bold">
-          <tr><td colspan="3" class="text-end">Totals (<?= count($list) ?>)</td><td><?= qty_fmt($sumC) ?> crates</td><td class="text-end"><?= $rs($sumT) ?></td><td></td><td class="text-end"><?= $rs($sumP) ?></td><td></td></tr>
+          <tr><td colspan="3" class="text-end">Totals (<?= count($list) ?>)</td><td><?= qty_fmt($sumC) ?> peti</td><td class="text-end"><?= $rs($sumT) ?></td><td></td><td class="text-end"><?= $rs($sumP) ?></td><td></td></tr>
         </tfoot>
       </table>
     </div>
