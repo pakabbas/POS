@@ -27,7 +27,7 @@ if (isset($flash[$_GET['msg'] ?? ''])) {
     $alert = ['type' => $flash[$_GET['msg']][0], 'msg' => $flash[$_GET['msg']][1]];
 }
 $lowOnly = ($_GET['low'] ?? '') === '1';
-$selfUrl = 'inventory.php' . ($lowOnly ? '?low=1' : '');
+$selfUrl = 'inventory.php' . ($lowOnly ? '?low=1' : ((int)($_GET['product'] ?? 0) ? '?product=' . (int)$_GET['product'] : ''));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $which = $_POST['form'] ?? '';
@@ -58,7 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->bind_param('idsd', $pid, $opening, $countAt, $reorder);
                 }
                 $stmt->execute();
-                redirect_to($selfUrl . ($lowOnly ? '&' : '?') . 'msg=opening');
+                redirect_to($selfUrl . (strpos($selfUrl, '?') !== false ? '&' : '?') . 'msg=opening');
             }
         } elseif ($which === 'adjust') {
             $types = stock_adjustment_types();
@@ -85,14 +85,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt = $conn->prepare("INSERT INTO StockMovements (ProductID, MovementType, Quantity, Crates, ReferenceType, MovementDate, PerformedBy, Notes) VALUES (?, ?, ?, ?, 'Manual', ?, ?, ?)");
                 $stmt->bind_param('isddsis', $pid, $mType, $qty, $crates, $when, $userId, $note);
                 $stmt->execute();
-                redirect_to($selfUrl . ($lowOnly ? '&' : '?') . 'msg=adjusted');
+                redirect_to($selfUrl . (strpos($selfUrl, '?') !== false ? '&' : '?') . 'msg=adjusted');
             }
         } elseif ($which === 'delete_adjust' && $role === 'Admin') {
             $mid = (int)($_POST['movement_id'] ?? 0);
             $stmt = $conn->prepare("DELETE FROM StockMovements WHERE MovementID = ? AND ReferenceType = 'Manual'");
             $stmt->bind_param('i', $mid);
             $stmt->execute();
-            redirect_to($selfUrl . ($lowOnly ? '&' : '?') . 'msg=deleted');
+            redirect_to($selfUrl . (strpos($selfUrl, '?') !== false ? '&' : '?') . 'msg=deleted');
         }
     } catch (Throwable $e) {
         $alert = ['type' => 'danger', 'msg' => 'Error: ' . $e->getMessage()];
@@ -100,17 +100,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 ob_end_flush();
 
-$levels = stock_levels($conn, ($_GET['show'] ?? '') !== 'all');
+$focusId = (int)($_GET['product'] ?? 0);
+$levels = stock_levels($conn, ($_GET['show'] ?? '') !== 'all' && !$focusId);
 $lowCount = 0;
 foreach ($levels as $r) {
     if ($r['Stock'] <= $r['ReorderLevel']) $lowCount++;
 }
 $shown = $lowOnly ? array_filter($levels, fn($r) => $r['Stock'] <= $r['ReorderLevel']) : $levels;
+$focusName = '';
+if ($focusId) {
+    $shown = array_filter($levels, fn($r) => (int)$r['ProductID'] === $focusId);
+    $focusName = $shown ? reset($shown)['ProductName'] : '';
+}
 $totalPeti = array_sum(array_column($levels, 'Stock'));
 
 $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovements sm
                        JOIN Products p ON p.ProductID = sm.ProductID LEFT JOIN Users u ON u.UserID = sm.PerformedBy
-                       WHERE sm.MovementType NOT IN ('Purchase', 'Sale')
+                       WHERE sm.MovementType NOT IN ('Purchase', 'Sale')" . ($focusId ? " AND sm.ProductID = " . $focusId : "") . "
                        ORDER BY sm.MovementDate DESC, sm.MovementID DESC LIMIT 50")->fetch_all(MYSQLI_ASSOC);
 ?>
 
@@ -122,6 +128,13 @@ $moves = $conn->query("SELECT sm.*, p.ProductName, u.UserName FROM StockMovement
     <a class="btn btn-outline-secondary btn-sm" href="purchases.php">Purchases</a>
   </div>
 </div>
+
+<?php if ($focusId): ?>
+  <div class="alert alert-info d-flex justify-content-between align-items-center py-2">
+    <span>Showing inventory for <strong><?= htmlspecialchars($focusName ?: 'this product') ?></strong></span>
+    <span><a class="btn btn-sm btn-outline-secondary" href="products.php">Back to products</a> <a class="btn btn-sm btn-secondary" href="inventory.php">All products</a></span>
+  </div>
+<?php endif; ?>
 
 <?php if ($alert): ?>
   <div class="alert alert-<?= $alert['type'] ?>"><?= htmlspecialchars($alert['msg']) ?></div>

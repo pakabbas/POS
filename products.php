@@ -154,6 +154,7 @@ $rows = $conn->query("
                   <td><span class="badge bg-<?= $row['IsActive'] ? 'success' : 'secondary' ?>"><?= $row['IsActive'] ? 'Active' : 'Inactive' ?></span></td>
                   <td class="text-end">
                     <a class="btn btn-sm btn-outline-primary" href="products.php?edit=<?= $row['ProductID'] ?>">Edit</a>
+                    <a class="btn btn-sm btn-outline-success" href="inventory.php?product=<?= (int)$row['ProductID'] ?>">Manage Inventory</a>
                     <a class="btn btn-sm btn-outline-danger" href="products.php?delete=<?= $row['ProductID'] ?>" onclick="return confirm('Delete this product?')">Delete</a>
                   </td>
                 </tr>
