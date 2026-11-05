@@ -133,7 +133,7 @@ body {
   <div class="totals">
     <div class="row"><span>Subtotal</span><span><?= moneyPk($invoice['Subtotal']) ?></span></div>
     <!-- <div class="row"><span>Tax</span><span><?= moneyPk($invoice['TaxAmount']) ?></span></div> -->
-    <div class="row"><span>Discount</span><span><?= moneyPk($invoice['Discount']) ?></span></div>
+    <div class="row"><span>Discount (Rs.)</span><span><?= moneyPk($invoice['Discount']) ?></span></div>
     <div class="row bold"><span>Total</span><span><?= moneyPk($invoice['TotalAmount']) ?></span></div>
     <?php if ($isCredit): ?>
       <?php $paidNow = (float)($invoice['AmountPaid'] ?? 0); ?>

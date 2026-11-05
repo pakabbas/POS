@@ -55,7 +55,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             max-width: 1600px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 400px;
+            grid-template-columns: minmax(0, 1fr) 10px var(--cart-w, 440px); /* products | splitter | cart */
             gap: 20px;
             height: calc(100vh - 40px);
         }
@@ -347,6 +347,22 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         }
         .qty-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,.25); }
         .line-total { color: #2d3748; }
+        .rate-row { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+        .rate-lbl, .rate-unit { font-size: 12px; color: #64748b; font-weight: 600; }
+        .rate-input {
+            width: 5.5em; height: 32px; padding: 0 4px;
+            border: 2px solid #c7d2fe; border-radius: 8px;
+            text-align: right; font-weight: 700; font-size: 14px;
+            color: #1e293b; background: #fff; -moz-appearance: textfield;
+        }
+        .rate-input:focus { outline: none; border-color: #667eea; box-shadow: 0 0 0 3px rgba(102,126,234,.25); }
+        .rate-input.edited { border-color: #f59e0b; background: #fffbeb; color: #92400e; }
+        .rate-reset {
+            border: none; background: #f1f5f9; color: #64748b; border-radius: 6px;
+            width: 26px; height: 26px; font-size: 14px; cursor: pointer; line-height: 1; padding: 0;
+        }
+        .rate-reset:hover { background: #e2e8f0; color: #0f172a; }
+        .base-note { font-size: 11px; color: #94a3b8; }
 
         .qty-display {
             font-weight: 600;
@@ -476,12 +492,52 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             color: #667eea;
         }
         
+        /* Draggable splitter between products and cart (desktop / tablet side-by-side only) */
+        .pos-split {
+            display: none;
+            width: 10px;
+            cursor: col-resize;
+            touch-action: none;
+            position: relative;
+            z-index: 5;
+            align-self: stretch;
+            background: transparent;
+            border: none;
+            padding: 0;
+            grid-column: 2;
+        }
+        .pos-split::before {
+            content: '';
+            position: absolute; top: 12%; bottom: 12%; left: 3px; width: 4px;
+            border-radius: 4px; background: rgba(255,255,255,.45);
+            box-shadow: 0 0 0 1px rgba(15,23,42,.08);
+            transition: background .15s, width .15s, left .15s;
+        }
+        .pos-split:hover::before, .pos-split:focus-visible::before, body.pos-resizing .pos-split::before {
+            background: #667eea; width: 6px; left: 2px;
+        }
+        body.pos-resizing { cursor: col-resize !important; user-select: none !important; }
+        body.pos-resizing iframe, body.pos-resizing .product-card { pointer-events: none; }
+
+        /* Desktop / wide tablet: product tiles ~20% smaller (icon, type, padding) */
+        @media (min-width: 1025px) {
+            .pos-split { display: block; }
+            .products-grid { grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 10px; }
+            .product-card { padding: 10px; border-radius: 10px; }
+            .product-icon { width: 42px; height: 42px; font-size: 19px; margin-bottom: 8px; border-radius: 10px; }
+            .product-name { font-size: 11px; min-height: 32px; margin-bottom: 6px; }
+            .product-price { font-size: 13px; }
+            .product-stock { font-size: 10px; }
+            .egg-badge { font-size: 8px; right: -4px; bottom: -4px; padding: 0 4px; }
+            .desi-badge { font-size: 9px; }
+        }
+
         @media (max-width: 1024px) {
             .pos-container {
                 grid-template-columns: 1fr;
                 height: auto;
             }
-            
+            .pos-split { display: none !important; }
             .cart-section {
                 min-height: 500px;
             }
@@ -620,6 +676,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         .qty-btn { width: 26px; height: 26px; font-size: 16px; border-radius: 6px; }
         .qty-display { min-width: 22px; font-size: 13px; }
         .qty-input { height: 28px; width: 4em; font-size: 14px; border-radius: 6px; }
+        .rate-input { height: 28px; width: 5em; font-size: 13px; border-radius: 6px; }
+        .rate-reset { width: 24px; height: 24px; font-size: 12px; }
         .remove-btn { padding: 5px 8px; font-size: 11px; }
         .empty-cart { padding: 16px 10px; }
         .cart-items .empty-cart-icon { font-size: 36px; margin-bottom: 6px; }
@@ -695,6 +753,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         </div>
         
         <!-- Cart Section -->
+        <button type="button" class="pos-split" id="posSplit" title="Drag to resize · double-click to reset" aria-label="Resize order panel"></button>
         <div class="cart-section">
             <div class="cart-header">
                 <h2>🛒 Current Order</h2>
@@ -728,7 +787,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             
             <div class="cart-summary">
                 <div class="discount-input">
-                    <input type="number" id="discountInput" placeholder="Discount %" min="0" max="100" step="0.01">
+                    <input type="number" id="discountInput" placeholder="Discount (Rs.)" min="0" step="0.01" inputmode="decimal">
                     <button onclick="applyDiscount()">Apply</button>
                 </div>
                 
@@ -741,7 +800,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     <span id="tax">Rs. 0.00</span>
                 </div>
                 <div class="summary-row">
-                    <span>Discount:</span>
+                    <span>Discount (Rs.):</span>
                     <span id="discount">Rs. 0.00</span>
                 </div>
                 <div class="summary-row total">
@@ -750,7 +809,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 </div>
                 
                 <div class="action-buttons">
-                    <button class="btn btn-checkout" onclick="openCheckoutModal()">Checkout</button>
+                    <button class="btn btn-checkout" id="bottomCheckoutBtn" onclick="openCheckoutModal()">Checkout (Cash)</button>
                 </div>
             </div>
         </div>
@@ -827,7 +886,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         let cart = [];
         let allProducts = [];
         const taxRate = <?php echo $tax_rate; ?>;
-        let discountPercent = 0;
+        let discountRs = 0;
         let paymentType = 'Cash';
         let selectedCustomer = null;
         let checkoutBusy = false;
@@ -839,8 +898,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         function currentTotals() {
             const subtotal = cart.reduce((sum, item) => sum + (item.Price * item.quantity), 0);
             const taxAmount = subtotal * (taxRate / 100);
-            const discountAmount = subtotal * (discountPercent / 100);
-            const total = subtotal + taxAmount - discountAmount;
+            const discountAmount = Math.min(Math.max(0, discountRs), subtotal);
+            const total = Math.max(0, subtotal + taxAmount - discountAmount);
             return { subtotal, taxAmount, discountAmount, total };
         }
 
@@ -851,6 +910,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             document.getElementById('customerSearch').placeholder = paymentType === 'Credit'
                 ? 'Credit sale: search customer (required)'
                 : 'Customer: name or phone (blank = walk-in)';
+            const bco = document.getElementById('bottomCheckoutBtn');
+            if (bco) bco.textContent = 'Checkout (' + paymentType + ')';
             if (paymentType === 'Credit' && !selectedCustomer) {
                 document.getElementById('customerSearch').focus();
             }
@@ -1056,9 +1117,9 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             const name = (product.ProductName || '').toLowerCase();
             const cat = (product.CategoryName || '').toLowerCase();
             // Egg icon scaled by size, with a size badge
-            const sizes = { 'small': ['S', 18], 'medium': ['M', 23], 'xl': ['XL', 32], 'large': ['L', 27] };
+            const sizes = { 'small': ['S', 14], 'medium': ['M', 18], 'xl': ['XL', 26], 'large': ['L', 22] };
             if (cat.includes('desi') || name.includes('desi')) {
-                return '<span class="egg-wrap"><span class="egg desi" style="font-size:27px">🥚</span><span class="egg-badge desi-badge">🐔</span></span>';
+                return '<span class="egg-wrap"><span class="egg desi" style="font-size:22px">🥚</span><span class="egg-badge desi-badge">🐔</span></span>';
             }
             for (const k of ['small', 'medium', 'xl', 'large']) {
                 if (name.includes(k)) {
@@ -1074,11 +1135,14 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             const existingItem = cart.find(item => item.ProductID === product.ProductID);
             if (existingItem) {
                 existingItem.quantity++;
+                // Keep the line's edited rate when the same product is added again
             } else {
+                const base = parseFloat(product.Price) || 0;
                 cart.push({
                     ProductID: product.ProductID,
                     ProductName: product.ProductName,
-                    Price: parseFloat(product.Price),
+                    BasePrice: base,
+                    Price: base,
                     quantity: 1
                 });
             }
@@ -1101,10 +1165,26 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 cart.forEach((item, index) => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'cart-item';
+                    const base = (item.BasePrice !== undefined && item.BasePrice !== null) ? item.BasePrice : item.Price;
+                    if (item.BasePrice === undefined) item.BasePrice = base;
+                    const edited = Math.abs(item.Price - base) > 0.004;
                     itemDiv.innerHTML = `
                         <div class="item-info">
                             <div class="item-name">${esc(item.ProductName)}</div>
-                            <div class="item-price">Rs. ${item.Price.toFixed(2)}/peti × <span class="line-qty">${item.quantity}</span> peti = <strong class="line-total">Rs. ${(item.Price * item.quantity).toFixed(2)}</strong></div>
+                            <div class="rate-row">
+                                <span class="rate-lbl">Rs.</span>
+                                <input type="text" class="rate-input${edited ? ' edited' : ''}" inputmode="decimal" autocomplete="off"
+                                       value="${item.Price.toFixed(2)}" data-index="${index}"
+                                       aria-label="Rate per peti for ${esc(item.ProductName)}"
+                                       onfocus="this.select()" onmouseup="return false"
+                                       oninput="rateTyped(this)" onblur="rateCommit(this)" onkeydown="rateKey(event, this)">
+                                <span class="rate-unit">/peti</span>
+                                ${edited ? `<button type="button" class="rate-reset" title="Reset to base Rs. ${base.toFixed(2)}" onclick="rateReset(${index})" aria-label="Reset rate">↺</button>` : ''}
+                            </div>
+                            <div class="item-price">
+                                ${edited ? `<span class="base-note">base Rs. ${base.toFixed(2)}</span> · ` : ''}
+                                <span class="line-qty">${item.quantity}</span> peti = <strong class="line-total">Rs. ${(item.Price * item.quantity).toFixed(2)}</strong>
+                            </div>
                         </div>
                         <div class="item-controls">
                             <button type="button" class="qty-btn" onclick="updateQuantity(${index}, -1)" aria-label="One less">−</button>
@@ -1144,8 +1224,60 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             const item = cart[+input.dataset.index];
             const row = input.closest('.cart-item');
             if (!item || !row) return;
-            row.querySelector('.line-qty').textContent = item.quantity;
-            row.querySelector('.line-total').textContent = 'Rs. ' + (item.Price * item.quantity).toFixed(2);
+            const qtyEl = row.querySelector('.line-qty');
+            const totEl = row.querySelector('.line-total');
+            if (qtyEl) qtyEl.textContent = item.quantity;
+            if (totEl) totEl.textContent = 'Rs. ' + (item.Price * item.quantity).toFixed(2);
+        }
+
+        const MAX_RATE = 999999.99;
+        function parseRate(v) {
+            v = String(v).trim().replace(/,/g, '');
+            if (v === '' || !/^[0-9]+(\.[0-9]{0,2})?$/.test(v)) return null;
+            const n = parseFloat(v);
+            if (!isFinite(n) || n < 0 || n > MAX_RATE) return null;
+            return Math.round(n * 100) / 100;
+        }
+        function rateTyped(input) {
+            let v = input.value.replace(/[^0-9.]/g, '');
+            const firstDot = v.indexOf('.');
+            if (firstDot !== -1) v = v.slice(0, firstDot + 1) + v.slice(firstDot + 1).replace(/\./g, '');
+            if (v.includes('.')) {
+                const [a, b = ''] = v.split('.');
+                v = a.slice(0, 8) + '.' + b.slice(0, 2);
+            } else v = v.slice(0, 8);
+            if (v !== input.value) input.value = v;
+            const item = cart[+input.dataset.index];
+            const n = parseRate(v);
+            if (!item || n === null) return;
+            item.Price = n;
+            const base = item.BasePrice ?? n;
+            input.classList.toggle('edited', Math.abs(n - base) > 0.004);
+            refreshLine(input);
+            updateSummary();
+        }
+        function rateCommit(input) {
+            const item = cart[+input.dataset.index];
+            if (!item) return;
+            const n = parseRate(input.value);
+            if (n !== null) item.Price = n;
+            // Rebuild so base-note / reset button appear or disappear
+            updateCart();
+            // Restore focus quietly not needed; blur already happened
+        }
+        function rateKey(e, input) {
+            if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); input.blur(); }
+            else if (e.key === 'Escape') {
+                const item = cart[+input.dataset.index];
+                input.value = (item ? item.Price : 0).toFixed(2);
+                input.blur();
+            }
+        }
+        function rateReset(index) {
+            const item = cart[index];
+            if (!item) return;
+            item.Price = item.BasePrice ?? item.Price;
+            updateCart();
         }
         function qtyTyped(input) {
             const digits = input.value.replace(/[^0-9]/g, '').slice(0, 4);
@@ -1185,23 +1317,28 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         
         // Update summary
         function updateSummary() {
-            const subtotal = cart.reduce((sum, item) => sum + (item.Price * item.quantity), 0);
-            const taxAmount = subtotal * (taxRate / 100);
-            const discountAmount = subtotal * (discountPercent / 100);
-            const total = subtotal + taxAmount - discountAmount;
-            
+            const { subtotal, taxAmount, discountAmount, total } = currentTotals();
             document.getElementById('subtotal').textContent = 'Rs. ' + subtotal.toFixed(2);
             document.getElementById('tax').textContent = 'Rs. ' + taxAmount.toFixed(2);
             document.getElementById('discount').textContent = 'Rs. ' + discountAmount.toFixed(2);
             document.getElementById('total').textContent = 'Rs. ' + total.toFixed(2);
+            // Keep typed discount from going over the current subtotal
+            if (discountRs > subtotal + 0.001) {
+                discountRs = subtotal;
+                const di = document.getElementById('discountInput');
+                if (di && document.activeElement !== di) di.value = discountRs ? discountRs.toFixed(2) : '';
+            }
         }
         
         // Apply discount
         function applyDiscount() {
             const input = document.getElementById('discountInput');
-            const value = parseFloat(input.value) || 0;
-            discountPercent = Math.max(0, Math.min(100, value));
-            input.value = discountPercent;
+            const subtotal = cart.reduce((sum, item) => sum + (item.Price * item.quantity), 0);
+            let value = parseFloat(String(input.value).replace(/,/g, '')) || 0;
+            if (value < 0) value = 0;
+            if (value > subtotal) value = subtotal;
+            discountRs = Math.round(value * 100) / 100;
+            input.value = discountRs ? discountRs.toFixed(2) : '';
             updateSummary();
         }
         
@@ -1209,7 +1346,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         function clearCart() {
             if (cart.length > 0 && confirm('Clear all items from cart?')) {
                 cart = [];
-                discountPercent = 0;
+                discountRs = 0;
                 document.getElementById('discountInput').value = '';
                 updateCart();
             }
@@ -1217,7 +1354,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         
         // Open checkout modal
         function openCheckoutModal() {
-            if (document.activeElement && document.activeElement.classList.contains('qty-input')) document.activeElement.blur();
+            if (document.activeElement && (document.activeElement.classList.contains('qty-input') || document.activeElement.classList.contains('rate-input'))) document.activeElement.blur();
             if (cart.length === 0) {
                 alert('Cart is empty!');
                 return;
@@ -1297,7 +1434,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     showSuccess();
                     closeCheckoutModal();
                     cart = [];
-                    discountPercent = 0;
+                    discountRs = 0;
                     document.getElementById('discountInput').value = '';
                     document.getElementById('customerName').value = '';
                     clearCustomer();
@@ -1330,6 +1467,84 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             }, 3000);
         }
         
+
+        // ---- Resizable cart panel (desktop/tablet side-by-side) ----
+        (function () {
+            const KEY = 'posCartWidthPx';
+            const DEFAULT_W = 440; // 10% wider than the old 400px default
+            const MIN_CART = 320;
+            const MIN_PROD = 360;
+            const root = document.querySelector('.pos-container');
+            const handle = document.getElementById('posSplit');
+            if (!root || !handle) return;
+
+            function sideBySide() {
+                return window.matchMedia('(min-width: 1025px)').matches;
+            }
+            function clamp(w) {
+                const max = Math.max(MIN_CART, root.clientWidth - MIN_PROD);
+                return Math.round(Math.min(Math.max(w, MIN_CART), max));
+            }
+            function apply(w, persist) {
+                if (!sideBySide()) {
+                    root.style.removeProperty('--cart-w');
+                    return;
+                }
+                const cw = clamp(w);
+                root.style.setProperty('--cart-w', cw + 'px');
+                if (persist) {
+                    try { localStorage.setItem(KEY, String(cw)); } catch (e) {}
+                }
+            }
+            function load() {
+                let w = DEFAULT_W;
+                try {
+                    const saved = parseInt(localStorage.getItem(KEY) || '', 10);
+                    if (saved >= MIN_CART) w = saved;
+                } catch (e) {}
+                apply(w, false);
+            }
+            load();
+            window.addEventListener('resize', () => {
+                const cur = parseInt(getComputedStyle(root).getPropertyValue('--cart-w'), 10);
+                apply(isFinite(cur) ? cur : DEFAULT_W, false);
+            });
+
+            let dragging = false, startX = 0, startW = DEFAULT_W;
+            function widthNow() {
+                const cur = parseInt(getComputedStyle(root).getPropertyValue('--cart-w'), 10);
+                return isFinite(cur) && cur > 0 ? cur : DEFAULT_W;
+            }
+            function onMove(clientX) {
+                if (!dragging) return;
+                // Dragging the handle left grows the cart (cart is on the right)
+                const dx = startX - clientX;
+                apply(startW + dx, false);
+            }
+            function onUp() {
+                if (!dragging) return;
+                dragging = false;
+                document.body.classList.remove('pos-resizing');
+                apply(widthNow(), true);
+            }
+            handle.addEventListener('pointerdown', (e) => {
+                if (!sideBySide() || e.button === 2) return;
+                dragging = true;
+                startX = e.clientX;
+                startW = widthNow();
+                document.body.classList.add('pos-resizing');
+                try { handle.setPointerCapture(e.pointerId); } catch (err) {}
+                e.preventDefault();
+            });
+            handle.addEventListener('pointermove', (e) => onMove(e.clientX));
+            handle.addEventListener('pointerup', onUp);
+            handle.addEventListener('pointercancel', onUp);
+            handle.addEventListener('dblclick', () => {
+                try { localStorage.removeItem(KEY); } catch (e) {}
+                apply(DEFAULT_W, true);
+            });
+        })();
+
         // Category filter
         document.querySelectorAll('.category-btn').forEach(btn => {
             btn.addEventListener('click', function() {

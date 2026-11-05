@@ -208,16 +208,33 @@ function createInvoice($conn, $data) {
         if (empty($data['items']) || !is_array($data['items'])) {
             throw new Exception("No items supplied");
         }
-        // Quantities are whole peti typed or clicked at the till: 1..9999 each.
+        // Quantities are whole peti; rates are Rs. per peti (may differ from the product base price).
+        $MAX_RATE = 999999.99;
+        $lines = [];
         foreach ($data['items'] as $item) {
             $q = $item['quantity'] ?? null;
             $pid = $item['ProductID'] ?? null;
+            $rate = $item['Price'] ?? null;
             if (!is_numeric($pid) || (int)$pid <= 0) {
                 throw new Exception("Invalid product in cart");
             }
             if (!is_numeric($q) || (float)$q != floor((float)$q) || (int)$q < 1 || (int)$q > 9999) {
                 throw new Exception("Quantity must be a whole number of peti between 1 and 9999");
             }
+            if (!is_numeric($rate) || (float)$rate < 0 || (float)$rate > $MAX_RATE) {
+                throw new Exception("Rate per peti must be a number between 0 and " . number_format($MAX_RATE, 2));
+            }
+            $qty = (int)$q;
+            $unit = round((float)$rate, 2);
+            $lines[] = [
+                'ProductID' => (int)$pid,
+                'quantity' => $qty,
+                'Price' => $unit,
+                'TotalPrice' => round($unit * $qty, 2),
+            ];
+        }
+        if (!$lines) {
+            throw new Exception("No items supplied");
         }
 
         // Generate invoice number
@@ -226,12 +243,16 @@ function createInvoice($conn, $data) {
         // Logged-in user (FK allows NULL)
         $userId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
         
-        // Totals
-        $subtotal = max(0, floatval($data['subtotal'] ?? 0));
-        $taxAmount = max(0, floatval($data['taxAmount'] ?? 0));
-        $discount = max(0, floatval($data['discount'] ?? 0));
-        $total = max(0, floatval($data['total'] ?? 0));
-        $total = round($total, 2);
+        // Recompute money from the validated lines — do not trust client totals.
+        $subtotal = 0.0;
+        foreach ($lines as $l) $subtotal += $l['TotalPrice'];
+        $subtotal = round($subtotal, 2);
+        $taxAmount = 0.0; // tax line is hidden on the till; keep column for schema compatibility
+        $discount = round(max(0, floatval($data['discount'] ?? 0)), 2); // rupees off the subtotal
+        if ($discount > $subtotal + 0.001) {
+            throw new Exception("Discount cannot be more than the subtotal");
+        }
+        $total = round(max(0, $subtotal + $taxAmount - $discount), 2);
 
         // Cash / Credit
         $paymentType = (($data['paymentType'] ?? 'Cash') === 'Credit') ? 'Credit' : 'Cash';
@@ -280,11 +301,11 @@ function createInvoice($conn, $data) {
         // Insert invoice items
         $itemStmt = $conn->prepare("INSERT INTO InvoiceItems (InvoiceID, ProductID, Quantity, UnitPrice, TotalPrice) VALUES (?, ?, ?, ?, ?)");
         
-        foreach ($data['items'] as $item) {
-            $productId = intval($item['ProductID']);
-            $quantity = (int)$item['quantity'];
-            $unitPrice = max(0, floatval($item['Price']));
-            $totalPrice = $unitPrice * $quantity;
+        foreach ($lines as $item) {
+            $productId = $item['ProductID'];
+            $quantity = $item['quantity'];
+            $unitPrice = $item['Price'];
+            $totalPrice = $item['TotalPrice'];
             
             $itemStmt->bind_param("iiidd", $invoiceId, $productId, $quantity, $unitPrice, $totalPrice);
             
