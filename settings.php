@@ -10,13 +10,11 @@ if ($role !== 'Admin' && $role !== 'Cashier') {
 }
 
 // Read existing info
-if (file_exists($infoFile)) {
-    $lines = array_values(array_filter(array_map('trim', file($infoFile)), 'strlen'));
-    $name = $lines[0] ?? '';
-    $tagline = $lines[1] ?? '';
-    $phone = $lines[2] ?? '';
-    $address = $lines[3] ?? '';
-}
+$bi = business_info();
+$name = $bi['name'];
+$tagline = $bi['tagline'];
+$phone = $bi['phone'];
+$address = $bi['address'];
 
 $saved = false;
 $savedLogo = false;

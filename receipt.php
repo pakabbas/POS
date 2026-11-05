@@ -13,17 +13,12 @@ $conn->set_charset('utf8mb4');
 
 // Load restaurant info if available
 $infoFile = __DIR__ . '/restaurantInfo.txt';
-$bizName = 'Inventory & POS';
-$tagline = '';
-$phone = '';
-$address = '';
-if (file_exists($infoFile)) {
-    $infoLines = array_values(array_filter(array_map('trim', file($infoFile)), 'strlen'));
-    $bizName = $infoLines[0] ?? $bizName;
-    $tagline = $infoLines[1] ?? $tagline;
-    $phone = $infoLines[2] ?? $phone;
-    $address = $infoLines[3] ?? $address;
-}
+require_once __DIR__ . '/includes/business_info.php';
+$bi = business_info();
+$bizName = $bi['name'];
+$tagline = $bi['tagline'];
+$phone = $bi['phone'];
+$address = $bi['address'];
 
 $invoiceId = isset($_GET['id']) ? (int) $_GET['id'] : 0;
 if ($invoiceId <= 0) {
@@ -106,7 +101,9 @@ body {
   <div class="center header">
     <img src="assets/logo-mono.svg" alt="" style="width:36px; height:36px; margin-bottom:2px;">
     <div class="bold" style="font-size:11px;"><?= htmlspecialchars($bizName) ?></div>
-    <?php if ($phone): ?><div class="small muted"><?= htmlspecialchars($phone) ?></div><?php endif; ?>
+    <?php if ($tagline): ?><div class="small muted"><?= htmlspecialchars($tagline) ?></div><?php endif; ?>
+    <?php if ($phone): ?><div class="small muted">Contact: <?= htmlspecialchars($phone) ?></div><?php endif; ?>
+    <?php if ($address): ?><div class="small muted"><?= htmlspecialchars($address) ?></div><?php endif; ?>
     <div class="small muted">Inv # <?= htmlspecialchars($invoice['InvoiceNumber']) ?></div>
     <div class="small"><?= date('d-M-Y g:i A', strtotime($invoice['InvoiceDate'])) ?></div>
     <div class="small bold"><?= $isCredit ? 'CREDIT SALE' : 'CASH SALE' ?></div>

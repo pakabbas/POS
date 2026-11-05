@@ -127,7 +127,7 @@ $rs = fn($n) => number_format((float)$n, 2);
 <?php elseif ($customer): ?>
 <div class="card shadow-sm">
   <div class="card-header bg-white">
-    <div class="print-only text-center mb-2"><strong><?= htmlspecialchars($bizName) ?></strong> — Customer Ledger</div>
+    <div class="print-only text-center mb-2"><strong><?= htmlspecialchars($bizName) ?></strong> — Customer Ledger<?php $bi = business_info(); ?><div class="small">Contact: <?= htmlspecialchars($bi['phone']) ?> · <?= htmlspecialchars($bi['address']) ?></div></div>
     <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
       <div>
         <div class="fw-bold fs-5"><?= htmlspecialchars($customer['CustomerName']) ?></div>

@@ -5,12 +5,9 @@ if (!defined('ALLOW_GUEST') && !isset($_SESSION['username'])) {
     exit();
 }
 $role = $_SESSION['role'] ?? 'Admin';
-$infoFile = __DIR__ . '/../restaurantInfo.txt';
-$bizName = 'Inventory & POS';
-if (file_exists($infoFile)) {
-    $lines = array_values(array_filter(array_map('trim', file($infoFile)), 'strlen'));
-    $bizName = $lines[0] ?? $bizName;
-}
+require_once __DIR__ . '/business_info.php';
+$bizInfo = business_info();
+$bizName = $bizInfo['name'];
 ?>
 <!DOCTYPE html>
 <html lang="en">

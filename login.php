@@ -58,7 +58,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Inventory &amp; POS</title>
+    <title>Login</title>
     <link rel="icon" type="image/svg+xml" href="assets/logo.svg">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="style.css" rel="stylesheet">
@@ -67,21 +67,16 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
 <?php
 // Load restaurant info for display
 $infoFile = __DIR__ . '/restaurantInfo.txt';
-$bizName = 'Inventory & POS';
-$tagline = '';
-$phone = '';
-$address = '';
-if (file_exists($infoFile)) {
-    $infoLines = array_values(array_filter(array_map('trim', file($infoFile)), 'strlen'));
-    $bizName = $infoLines[0] ?? $bizName;
-    $tagline = $infoLines[1] ?? $tagline;
-    $phone = $infoLines[2] ?? $phone;
-    $address = $infoLines[3] ?? $address;
-}
+require_once __DIR__ . '/includes/business_info.php';
+$bi = business_info();
+$bizName = $bi['name'];
+$tagline = $bi['tagline'];
+$phone = $bi['phone'];
+$address = $bi['address'];
 ?>
 <div class="auth-page">
 <div class="card shadow-lg p-4 auth-card">
-    <img src="assets/logo.svg" alt="Inventory &amp; POS" class="login-logo" style="width:72px;height:72px;display:block;margin:0 auto 8px;">
+    <img src="assets/logo.svg" alt="" class="login-logo" style="width:72px;height:72px;display:block;margin:0 auto 8px;">
     <h4 class="text-center mb-1"><?= htmlspecialchars($bizName) ?></h4>
     <!-- <?php if ($tagline): ?><div class="text-center text-muted small mb-2"><?= htmlspecialchars($tagline) ?></div><?php endif; ?> -->
     <!-- <?php if ($phone): ?><div class="text-center text-muted small mb-3"><?= htmlspecialchars($phone) ?></div><?php endif; ?> -->
