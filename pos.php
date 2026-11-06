@@ -725,7 +725,10 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         <div class="products-section">
             <div class="header">
                 <h1><img src="assets/logo.svg" alt="" style="width:34px;height:34px;vertical-align:-6px;margin-right:6px;"><?= htmlspecialchars($posBizName) ?></h1>
-                <a class="back-btn" href="dashboard.php">← Back to Dashboard</a>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+                    <button type="button" class="back-btn" id="editInvoiceBtn" onclick="openFindInvoiceModal()" style="cursor:pointer;font:inherit">✎ Edit Invoice</button>
+                    <a class="back-btn" href="dashboard.php">← Back to Dashboard</a>
+                </div>
             </div>
             
             <div class="search-box">
@@ -759,6 +762,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 <h2>🛒 Current Order</h2>
                 <button class="quick-checkout-btn" onclick="openCheckoutModal()">Checkout</button>
             </div>
+            <div id="editBanner" style="display:none;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px;font-weight:600"></div>
             
             <div class="customer-panel">
                 <div class="pay-type">
@@ -879,6 +883,22 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         </div>
     </div>
 
+    <!-- Find invoice to edit -->
+    <div class="modal" id="findInvoiceModal">
+        <div class="modal-content">
+            <div class="modal-header">Edit Invoice</div>
+            <div class="form-group">
+                <label>Invoice Number</label>
+                <input type="text" id="findInvoiceNumber" placeholder="e.g. INV-20261106-1234" autocomplete="off">
+            </div>
+            <div class="modal-error" id="findInvoiceError"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" type="button" onclick="closeFindInvoiceModal()">Cancel</button>
+                <button class="btn-confirm" type="button" id="findInvoiceGo" onclick="submitFindInvoice()">Open</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Success Message -->
     <div class="success-message" id="successMessage">
         ✓ Order completed successfully!
@@ -892,6 +912,9 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         let paymentType = 'Cash';
         let selectedCustomer = null;
         let checkoutBusy = false;
+        let editingInvoiceId = null;
+        let editingInvoiceNumber = null;
+        let editingAmountPaidOnInvoice = 0;
 
         function esc(s) {
             return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1375,6 +1398,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             const { total } = currentTotals();
             const isCredit = paymentType === 'Credit';
             document.getElementById('checkoutSummary').innerHTML =
+                (editingInvoiceId ? ('<b>✎ Update ' + esc(editingInvoiceNumber) + '</b> · ') : '') +
                 '<b>' + (isCredit ? '📒 Credit sale' : '💵 Cash sale') + '</b> · ' +
                 (selectedCustomer ? esc(selectedCustomer.CustomerName) : 'Walk-in') +
                 ' · Total <b>' + rs(total) + '</b>';
@@ -1383,6 +1407,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             document.getElementById('paymentMethodLabel').textContent = isCredit ? 'Method (for amount received)' : 'Payment Method';
             document.getElementById('amountPaid').value = '0';
             document.getElementById('checkoutError').textContent = '';
+            const conf = document.getElementById('confirmCheckoutBtn');
+            if (conf) conf.textContent = editingInvoiceId ? 'Save Changes' : 'Complete Order';
             if (isCredit) updateCreditCalc();
             document.getElementById('checkoutModal').classList.add('active');
         }
@@ -1414,7 +1440,8 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
             }
             
             const orderData = {
-                action: 'createInvoice',
+                action: editingInvoiceId ? 'updateInvoice' : 'createInvoice',
+                invoiceId: editingInvoiceId || undefined,
                 items: cart,
                 subtotal: subtotal,
                 taxAmount: taxAmount,
@@ -1447,6 +1474,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     document.getElementById('customerName').value = '';
                     clearCustomer();
                     setPaymentType('Cash');
+                    clearEditMode();
                     updateCart();
                     refreshStock();
                     if (data.invoiceId) {
@@ -1551,6 +1579,89 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 try { localStorage.removeItem(KEY); } catch (e) {}
                 apply(DEFAULT_W, true);
             });
+        })();
+
+
+        function openFindInvoiceModal() {
+            document.getElementById('findInvoiceError').textContent = '';
+            document.getElementById('findInvoiceNumber').value = '';
+            document.getElementById('findInvoiceModal').classList.add('active');
+            setTimeout(() => document.getElementById('findInvoiceNumber').focus(), 50);
+        }
+        function closeFindInvoiceModal() {
+            document.getElementById('findInvoiceModal').classList.remove('active');
+        }
+        function submitFindInvoice() {
+            const num = document.getElementById('findInvoiceNumber').value.trim();
+            const err = document.getElementById('findInvoiceError');
+            err.textContent = '';
+            if (!num) { err.textContent = 'Enter an invoice number'; return; }
+            document.getElementById('findInvoiceGo').disabled = true;
+            fetch('pos_api.php?action=findInvoice&number=' + encodeURIComponent(num))
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) { err.textContent = data.message || 'Not found'; return; }
+                    window.location.href = 'pos.php?edit=' + encodeURIComponent(data.invoiceId);
+                })
+                .catch(() => { err.textContent = 'Network error'; })
+                .finally(() => { document.getElementById('findInvoiceGo').disabled = false; });
+        }
+        document.getElementById('findInvoiceNumber')?.addEventListener('keydown', e => {
+            if (e.key === 'Enter') { e.preventDefault(); submitFindInvoice(); }
+        });
+
+        function clearEditMode() {
+            editingInvoiceId = null;
+            editingInvoiceNumber = null;
+            editingAmountPaidOnInvoice = 0;
+            const ban = document.getElementById('editBanner');
+            if (ban) { ban.style.display = 'none'; ban.textContent = ''; }
+            const conf = document.getElementById('confirmCheckoutBtn');
+            if (conf) conf.textContent = 'Complete Order';
+            if (window.history.replaceState) {
+                const u = new URL(window.location.href);
+                if (u.searchParams.has('edit')) { u.searchParams.delete('edit'); window.history.replaceState({}, '', u.pathname + u.search); }
+            }
+        }
+        function setEditBanner() {
+            const ban = document.getElementById('editBanner');
+            if (!ban || !editingInvoiceId) return;
+            ban.style.display = '';
+            ban.innerHTML = 'Editing <b>' + esc(editingInvoiceNumber) + '</b> — save updates this invoice (stock & ledger follow the new lines). <a href="pos.php" style="color:#92400e">Cancel</a>';
+        }
+        function loadInvoiceForEdit(id) {
+            fetch('pos_api.php?action=getInvoice&id=' + encodeURIComponent(id))
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        alert(data.message || 'Could not load invoice');
+                        clearEditMode();
+                        return;
+                    }
+                    const inv = data.invoice;
+                    editingInvoiceId = inv.InvoiceID;
+                    editingInvoiceNumber = inv.InvoiceNumber;
+                    editingAmountPaidOnInvoice = inv.AmountPaidOnInvoice || 0;
+                    cart = (data.items || []).map(it => ({
+                        ProductID: it.ProductID,
+                        ProductName: it.ProductName,
+                        BasePrice: it.BasePrice,
+                        Price: it.Price,
+                        quantity: it.quantity
+                    }));
+                    discountRs = inv.Discount || 0;
+                    document.getElementById('discountInput').value = discountRs ? discountRs.toFixed(2) : '';
+                    setPaymentType(inv.PaymentType === 'Credit' ? 'Credit' : 'Cash');
+                    if (data.customer) selectCustomer(data.customer);
+                    else clearCustomer();
+                    updateCart();
+                    setEditBanner();
+                })
+                .catch(() => alert('Network error loading invoice'));
+        }
+        (function bootEdit() {
+            const m = /(?:\?|&)edit=(\d+)/.exec(window.location.search);
+            if (m) loadInvoiceForEdit(m[1]);
         })();
 
         // Category filter

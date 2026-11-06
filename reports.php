@@ -293,6 +293,7 @@ $csvUrl = 'reports.php?' . ($r === 'invoices'
               <td class="text-end no-print">
                 <div class="d-flex justify-content-end gap-1">
                   <button class="btn btn-sm btn-outline-secondary" onclick="window.open('receipt.php?id=<?= (int)$inv['InvoiceID'] ?>', '_blank'); event.stopPropagation();">View</button>
+                  <a class="btn btn-sm btn-outline-primary" href="pos.php?edit=<?= (int)$inv['InvoiceID'] ?>">Edit</a>
                   <a class="btn btn-sm btn-outline-danger" href="reports.php?r=invoices&delete=<?= (int)$inv['InvoiceID'] ?>&start=<?= urlencode($start) ?>&end=<?= urlencode($end) ?>&search=<?= urlencode($search) ?>&page=<?= $page ?>" onclick="return confirm('Delete this invoice?')">Delete</a>
                 </div>
               </td>

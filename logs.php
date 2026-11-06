@@ -41,6 +41,7 @@ $types = [
     'customer_pay' => 'Customer receipts',
     'expense' => 'Expenses',
     'user' => 'Users created',
+    'invoice_edit' => 'Invoice edits',
 ];
 if (!isset($types[$type])) $type = 'all';
 
@@ -199,6 +200,29 @@ if (($type === 'all' || $type === 'user') && !$userFilter) {
     }
 }
 
+
+if ($type === 'all' || $type === 'invoice_edit') {
+    $sql = "SELECT al.CreatedAt, al.Summary, al.UserID, al.EntityRef
+            FROM ActivityLog al
+            WHERE al.EventType = 'invoice_edit' AND al.CreatedAt BETWEEN ? AND ?";
+    $params = [$fromDt, $toDt]; $ts = 'ss';
+    if ($userFilter) { $sql .= " AND al.UserID = ?"; $ts .= 'i'; $params[] = $userFilter; }
+    try {
+        $st = $conn->prepare($sql); $st->bind_param($ts, ...$params); $st->execute();
+        foreach ($st->get_result()->fetch_all(MYSQLI_ASSOC) as $r) {
+            $uid = $r['UserID'] ? (int)$r['UserID'] : null;
+            $events[] = [
+                'when' => $r['CreatedAt'], 'who' => log_who($uid, $userName),
+                'label' => 'Invoice edit',
+                'what' => $r['Summary'],
+                'amount' => null,
+            ];
+        }
+    } catch (Throwable $e) {
+        // table may not exist yet on a copy without migration
+    }
+}
+
 usort($events, fn($a, $b) => strcmp($b['when'], $a['when']));
 $totalEvents = count($events);
 $truncated = $totalEvents > $limit;
@@ -211,7 +235,7 @@ $events = array_slice($events, 0, $limit);
   <h2 class="fw-bold mb-0">Logs</h2>
   <button type="button" class="btn btn-outline-dark btn-sm no-print" onclick="window.print()">🖨 Print</button>
 </div>
-<p class="text-muted small no-print mb-2">Daily-ops activity for theft oversight. Invoice <em>delete</em> exists under Reports but is a hard delete with no audit trail, so deletions cannot be listed here. Showing up to <?= (int)$limit ?> newest events.</p>
+<p class="text-muted small no-print mb-2">Daily-ops activity for theft oversight. Invoice <em>edits</em> are logged here. Invoice <em>delete</em> under Reports is still a hard delete with no audit trail. Showing up to <?= (int)$limit ?> newest events.</p>
 
 <form class="card shadow-sm mb-3 no-print" method="get"><div class="card-body py-2">
   <div class="d-flex flex-wrap gap-2 align-items-center">
