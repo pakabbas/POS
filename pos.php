@@ -765,9 +765,10 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                     <button type="button" data-type="Cash" class="active" onclick="setPaymentType('Cash')">💵 Cash</button>
                     <button type="button" data-type="Credit" onclick="setPaymentType('Credit')">📒 Credit</button>
                 </div>
+                <div id="creditCustomerUi" style="display:none">
                 <div class="cust-row">
                     <div class="cust-search">
-                        <input type="text" id="customerSearch" placeholder="Customer: name or phone (blank = walk-in)" autocomplete="off">
+                        <input type="text" id="customerSearch" placeholder="Credit sale: search customer (required)" autocomplete="off">
                         <div class="cust-results" id="customerResults"></div>
                     </div>
                     <button type="button" class="new-cust-btn" onclick="openNewCustomerModal()">+ New Customer</button>
@@ -775,6 +776,7 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
                 <div class="selected-cust" id="selectedCustomer">
                     <span id="selectedCustomerText"></span>
                     <button type="button" title="Clear customer" onclick="clearCustomer()">✕</button>
+                </div>
                 </div>
             </div>
 
@@ -907,13 +909,19 @@ $tax_rate = $tax_result && $tax_result->num_rows > 0 ? $tax_result->fetch_assoc(
         function setPaymentType(t) {
             paymentType = (t === 'Credit') ? 'Credit' : 'Cash';
             document.querySelectorAll('.pay-type button').forEach(b => b.classList.toggle('active', b.dataset.type === paymentType));
-            document.getElementById('customerSearch').placeholder = paymentType === 'Credit'
-                ? 'Credit sale: search customer (required)'
-                : 'Customer: name or phone (blank = walk-in)';
             const bco = document.getElementById('bottomCheckoutBtn');
             if (bco) bco.textContent = 'Checkout (' + paymentType + ')';
-            if (paymentType === 'Credit' && !selectedCustomer) {
-                document.getElementById('customerSearch').focus();
+            const custUi = document.getElementById('creditCustomerUi');
+            if (paymentType === 'Credit') {
+                if (custUi) custUi.style.display = '';
+                if (!selectedCustomer) document.getElementById('customerSearch').focus();
+            } else {
+                // Cash = walk-in: hide customer picker and drop any leftover credit customer
+                if (custUi) custUi.style.display = 'none';
+                clearCustomer();
+                document.getElementById('customerSearch').value = '';
+                document.getElementById('customerResults').classList.remove('show');
+                if (typeof closeNewCustomerModal === 'function') closeNewCustomerModal();
             }
         }
 
